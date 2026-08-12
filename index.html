@@ -250,11 +250,11 @@ select.filter:focus{outline:none;border-color:var(--blue)}
 <!-- ===================== LOGIN ===================== -->
 <div id="login">
   <div class="login-card">
-    <div class="login-logo"><span>EA</span></div>
+    <img src="https://www.eventosarias.com/wp-content/uploads/2024/06/logonuevo.jpg" alt="Eventos Arias" style="width:220px;max-width:84%;height:auto;border-radius:12px;display:block;margin:0 auto 18px;box-shadow:0 8px 20px rgba(0,46,91,.35)">
     <h1>Eventos Arias</h1>
     <div class="sub">Sistema Administrativo</div>
-    <div class="field"><label>Correo</label><input type="email" id="loginEmail" placeholder="tucorreo@eventosarias.com" autocomplete="username"></div>
-    <div class="field"><label>Contraseña</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
+    <div class="field"><label>Correo</label><input type="email" id="loginEmail" placeholder="tucorreo@eventosarias.com" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="new-password"></div>
     <button class="btn btn-primary" id="loginBtn">Entrar</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-demo">¿Solo explorando? <button id="demoBtn">Entrar en modo demo</button></div>
@@ -266,8 +266,8 @@ select.filter:focus{outline:none;border-color:var(--blue)}
   <div class="backdrop" id="backdrop"></div>
   <aside class="sidebar" id="sidebar">
     <div class="side-brand">
-      <div class="mark"><span>EA</span></div>
-      <div><b>Eventos Arias</b><small>ADMINISTRACIÓN</small></div>
+      <img src="https://www.eventosarias.com/wp-content/uploads/2024/06/logonuevo.jpg" alt="Eventos Arias" style="width:100%;max-width:190px;height:auto;border-radius:10px;display:block">
+      <div class="hidden"><b>Eventos Arias</b><small>ADMINISTRACIÓN</small></div>
     </div>
     <nav class="nav" id="nav"></nav>
     <div class="side-foot">
@@ -951,6 +951,9 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   $('#logoutBtn').onclick=()=>{ if(state.mode==='supabase'&&state.sb)state.sb.auth.signOut(); location.reload(); };
   $('#menuBtn').onclick=()=>{ $('#sidebar').classList.add('open'); $('#backdrop').classList.add('show'); };
   $('#backdrop').onclick=()=>{ $('#sidebar').classList.remove('open'); $('#backdrop').classList.remove('show'); };
+
+  const clearLogin=()=>{ try{ $("#loginEmail").value=""; $("#loginPass").value=""; }catch(e){} };
+  clearLogin(); setTimeout(clearLogin,300); setTimeout(clearLogin,900);
 
   // Atajo demo: ?demo o ?demo=chofer entra directo
   const p=new URLSearchParams(location.search);
