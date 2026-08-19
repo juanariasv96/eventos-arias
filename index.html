@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eventos Arias · Sistema Administrativo</title>
-<link rel="apple-touch-icon" href="https://images.weserv.nl/?url=www.eventosarias.com/wp-content/uploads/2024/06/logonuevo.jpg&w=360&h=360&fit=cover&a=center&mask=false">
-<link rel="icon" type="image/jpeg" href="https://images.weserv.nl/?url=www.eventosarias.com/wp-content/uploads/2024/06/logonuevo.jpg&w=360&h=360&fit=cover&a=center&mask=false">
+<link rel="apple-touch-icon" href="https://images.weserv.nl/?url=www.eventosarias.com/wp-content/uploads/2024/06/logonuevo.jpg&w=360&h=360&fit=cover&a=center">
+<link rel="icon" type="image/jpeg" href="https://images.weserv.nl/?url=www.eventosarias.com/wp-content/uploads/2024/06/logonuevo.jpg&w=360&h=360&fit=cover&a=center">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Eventos Arias">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -134,6 +134,11 @@ tbody tr:hover{background:#f8fafd}
 .b-pagado{background:var(--pay-bg);color:var(--pay)}
 .b-cancelado{background:var(--danger-bg);color:var(--danger)}
 .pill{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:600;background:var(--bg);color:var(--navy-2)}
+.seg{--bg2:#eef2f7}
+.seg-b{border:0;background:transparent;padding:8px 16px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:.15s}
+.seg-b .pill{background:rgba(0,0,0,.06)}
+.seg-b.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg-b.on .pill{background:var(--accent);color:#fff}
 
 .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
 .search{position:relative;flex:1;min-width:180px;max-width:320px}
@@ -387,26 +392,87 @@ function seedDemo(){
     {id:'ch2',nombre:'Miguel Torres'}
   ];
   const mobiliario = [
-    {id:'m1',nombre:'Silla Tiffany blanca',categoria:'Sillas',cantidad_total:200,precio_renta:25},
-    {id:'m2',nombre:'Silla plegable acojinada',categoria:'Sillas',cantidad_total:150,precio_renta:18},
-    {id:'m3',nombre:'Mesa redonda 10 personas',categoria:'Mesas',cantidad_total:40,precio_renta:120},
-    {id:'m4',nombre:'Mesa rectangular 8 personas',categoria:'Mesas',cantidad_total:30,precio_renta:100},
-    {id:'m5',nombre:'Sala lounge (3 piezas)',categoria:'Salas Lounge',cantidad_total:12,precio_renta:1200},
-    {id:'m6',nombre:'Barra iluminada LED',categoria:'Barras',cantidad_total:6,precio_renta:1500},
-    {id:'m7',nombre:'Mesa periquera alta',categoria:'Mesas',cantidad_total:25,precio_renta:150},
-    {id:'m8',nombre:'Carpa 5x5 m',categoria:'Carpas',cantidad_total:8,precio_renta:2500},
-    {id:'m9',nombre:'Calentador exterior',categoria:'Climatización',cantidad_total:15,precio_renta:450},
-    {id:'m10',nombre:'Mantelería (por pieza)',categoria:'Mantelería',cantidad_total:300,precio_renta:35}
+    {id:"p1",nombre:"Portacooler",categoria:"Climatización",cantidad_total:30,precio_renta:1250,tipo:"pieza",unidad:"pieza"},
+    {id:"p2",nombre:"Calentador de exterior (hongo)",categoria:"Climatización",cantidad_total:47,precio_renta:950,tipo:"pieza",unidad:"pieza"},
+    {id:"p3",nombre:"Tanque de gas",categoria:"Climatización",cantidad_total:48,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p4",nombre:"Sombrero p/ calentador",categoria:"Climatización",cantidad_total:44,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p5",nombre:"Mesa de beerpong",categoria:"Juegos",cantidad_total:3,precio_renta:500,tipo:"pieza",unidad:"pieza"},
+    {id:"p6",nombre:"Triángulo de madera (beerpong)",categoria:"Juegos",cantidad_total:3,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p7",nombre:"Pelota de beerpong",categoria:"Juegos",cantidad_total:68,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p8",nombre:"Barra iluminada",categoria:"Barras",cantidad_total:2,precio_renta:950,tipo:"pieza",unidad:"pieza"},
+    {id:"p9",nombre:"Sillón con respaldo (lounge)",categoria:"Salas Lounge",cantidad_total:16,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p10",nombre:"Sillón largo sin respaldo (lounge)",categoria:"Salas Lounge",cantidad_total:15,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p11",nombre:"Taburete (lounge)",categoria:"Salas Lounge",cantidad_total:60,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p12",nombre:"Mesa de centro (lounge)",categoria:"Salas Lounge",cantidad_total:23,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p13",nombre:"Acrílico (tapa mesa centro)",categoria:"Salas Lounge",cantidad_total:19,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p14",nombre:"Toldo 3x3",categoria:"Carpas y Toldos",cantidad_total:4,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p15",nombre:"Toldo 4x4",categoria:"Carpas y Toldos",cantidad_total:2,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p16",nombre:"Toldo 6x6",categoria:"Carpas y Toldos",cantidad_total:4,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p17",nombre:"Toldo 5x10",categoria:"Carpas y Toldos",cantidad_total:1,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p18",nombre:"Lona 3x3",categoria:"Carpas y Toldos",cantidad_total:5,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p19",nombre:"Lona 4x4",categoria:"Carpas y Toldos",cantidad_total:2,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p20",nombre:"Lona 6x6",categoria:"Carpas y Toldos",cantidad_total:4,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p21",nombre:"Lona 5x10",categoria:"Carpas y Toldos",cantidad_total:1,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p22",nombre:"Estructura 4x4",categoria:"Carpas y Toldos",cantidad_total:2,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p23",nombre:"Estructura 6x6",categoria:"Carpas y Toldos",cantidad_total:7,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p24",nombre:"Estructura 5x10",categoria:"Carpas y Toldos",cantidad_total:1,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p25",nombre:"Corona 4 puntas",categoria:"Carpas y Toldos",cantidad_total:8,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p26",nombre:"Esquinero",categoria:"Carpas y Toldos",cantidad_total:15,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p27",nombre:"Candado",categoria:"Accesorios",cantidad_total:24,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p28",nombre:"Porrón 20 L",categoria:"Bebidas",cantidad_total:12,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p29",nombre:"Tambo 200 L",categoria:"Bebidas",cantidad_total:9,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p30",nombre:"Funda 20 L",categoria:"Accesorios",cantidad_total:20,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p31",nombre:"Funda 200 L",categoria:"Accesorios",cantidad_total:6,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p32",nombre:"Luz central (toldo)",categoria:"Iluminación",cantidad_total:5,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p33",nombre:"Tornillo de toldo",categoria:"Accesorios",cantidad_total:121,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p34",nombre:"Cortina",categoria:"Carpas y Toldos",cantidad_total:7,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p35",nombre:"Canaleta",categoria:"Carpas y Toldos",cantidad_total:2,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p36",nombre:"Serie de luces",categoria:"Iluminación",cantidad_total:7,precio_renta:1000,tipo:"pieza",unidad:"pieza"},
+    {id:"p37",nombre:"Bocina",categoria:"Audio",cantidad_total:1,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p38",nombre:"Hielera verde (mediana)",categoria:"Hieleras",cantidad_total:7,precio_renta:350,tipo:"pieza",unidad:"pieza"},
+    {id:"p39",nombre:"Hielera blanca (grande)",categoria:"Hieleras",cantidad_total:9,precio_renta:450,tipo:"pieza",unidad:"pieza"},
+    {id:"p40",nombre:"Mesa crossback",categoria:"Mesas",cantidad_total:19,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p41",nombre:"Silla crossback",categoria:"Sillas",cantidad_total:186,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p42",nombre:"Mesa periquera gris",categoria:"Periqueras",cantidad_total:59,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p43",nombre:"Silla gris",categoria:"Sillas",cantidad_total:240,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p44",nombre:"Mesa periquera dorada",categoria:"Periqueras",cantidad_total:33,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p45",nombre:"Silla dorada",categoria:"Sillas",cantidad_total:223,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p46",nombre:"Mesa periquera redonda dorada",categoria:"Periqueras",cantidad_total:31,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p47",nombre:"Mesa periquera de vidrio",categoria:"Periqueras",cantidad_total:2,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p48",nombre:"Funda gris (mesa)",categoria:"Accesorios",cantidad_total:40,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p49",nombre:"Funda dorada (mesa)",categoria:"Accesorios",cantidad_total:33,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p50",nombre:"Funda silla gris",categoria:"Accesorios",cantidad_total:240,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p51",nombre:"Caja redonda",categoria:"Accesorios",cantidad_total:1,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"r1",nombre:"Mesa periquera dorada rectangular (6 sillas)",categoria:"Periqueras",cantidad_total:33,precio_renta:750,tipo:"producto",unidad:"set"},
+    {id:"r2",nombre:"Mesa periquera dorada rectangular (8 sillas)",categoria:"Periqueras",cantidad_total:33,precio_renta:910,tipo:"producto",unidad:"set"},
+    {id:"r3",nombre:"Mesa periquera dorada redonda (4 sillas)",categoria:"Periqueras",cantidad_total:31,precio_renta:550,tipo:"producto",unidad:"set"},
+    {id:"r4",nombre:"Mesa periquera plateada/gris cuadrada (4 sillas)",categoria:"Periqueras",cantidad_total:59,precio_renta:350,tipo:"producto",unidad:"set"},
+    {id:"r5",nombre:"Mesa periquera de vidrio redonda (4 sillas)",categoria:"Periqueras",cantidad_total:2,precio_renta:550,tipo:"producto",unidad:"set"},
+    {id:"r6",nombre:"Mesa crossback (10 sillas)",categoria:"Mesas",cantidad_total:19,precio_renta:1100,tipo:"producto",unidad:"set"},
+    {id:"r7",nombre:"Mesa crossback (12 sillas)",categoria:"Mesas",cantidad_total:19,precio_renta:1250,tipo:"producto",unidad:"set"},
+    {id:"r8",nombre:"Salas lounge",categoria:"Salas Lounge",cantidad_total:15,precio_renta:500,tipo:"producto",unidad:"set"},
+    {id:"r9",nombre:"Barra iluminada",categoria:"Barras",cantidad_total:2,precio_renta:950,tipo:"producto",unidad:"pieza"},
+    {id:"r10",nombre:"Calentador de exterior",categoria:"Climatización",cantidad_total:47,precio_renta:950,tipo:"producto",unidad:"pieza"},
+    {id:"r11",nombre:"Porta cooler",categoria:"Climatización",cantidad_total:30,precio_renta:1250,tipo:"producto",unidad:"pieza"},
+    {id:"r12",nombre:"Generador 125 KWA",categoria:"Energía",cantidad_total:0,precio_renta:9500,tipo:"producto",unidad:"pieza"},
+    {id:"r13",nombre:"Hielera grande",categoria:"Hieleras",cantidad_total:9,precio_renta:450,tipo:"producto",unidad:"pieza"},
+    {id:"r14",nombre:"Hielera mediana",categoria:"Hieleras",cantidad_total:7,precio_renta:350,tipo:"producto",unidad:"pieza"},
+    {id:"r15",nombre:"Mesa de beerpong",categoria:"Juegos",cantidad_total:3,precio_renta:500,tipo:"producto",unidad:"pieza"},
+    {id:"r16",nombre:"Serie de luces (14.75 m)",categoria:"Iluminación",cantidad_total:7,precio_renta:1000,tipo:"producto",unidad:"pieza"},
+    {id:"r17",nombre:"Inflable para niños",categoria:"Juegos",cantidad_total:0,precio_renta:1000,tipo:"producto",unidad:"pieza"},
+    {id:"r18",nombre:"Paquete de audio Básico",categoria:"Audio",cantidad_total:1,precio_renta:7000,tipo:"producto",unidad:"paquete"},
+    {id:"r19",nombre:"Paquete de audio Plus",categoria:"Audio",cantidad_total:1,precio_renta:9000,tipo:"producto",unidad:"paquete"},
+    {id:"r20",nombre:"Paquete de audio Premium",categoria:"Audio",cantidad_total:1,precio_renta:22500,tipo:"producto",unidad:"paquete"}
   ];
   const d = new Date(); const y=d.getFullYear(), mo=d.getMonth();
   const iso=(day,m=mo)=>new Date(y,m,day).toISOString().slice(0,10);
   const eventos = [
-    {id:'e1',cliente:'Boda García-López',telefono:'81 1234 5678',fecha:iso(d.getDate()+3),hora:'17:00',direccion:'Jardín Los Encinos, Carr. Nacional Km 12, Monterrey',tipo:'Boda',estatus:'anticipo',total:38500,anticipo:15000,chofer_id:'ch1',notas:'Montaje 3 hrs antes. Acceso por portón trasero.',entregado:false,recogido:false,items:[{mob_id:'m1',cantidad:120},{mob_id:'m3',cantidad:12},{mob_id:'m5',cantidad:2},{mob_id:'m10',cantidad:120}],created:iso(d.getDate()-10)},
-    {id:'e2',cliente:'XV Años Fernanda',telefono:'81 2345 6789',fecha:iso(d.getDate()+1),hora:'19:00',direccion:'Salón Cristal, Av. Gonzalitos 340, Monterrey',tipo:'XV Años',estatus:'pagado',total:26000,anticipo:26000,chofer_id:'ch2',notas:'Cliente pide barra LED al centro.',entregado:false,recogido:false,items:[{mob_id:'m2',cantidad:100},{mob_id:'m4',cantidad:12},{mob_id:'m6',cantidad:1}],created:iso(d.getDate()-14)},
-    {id:'e3',cliente:'Evento corporativo Cemex',telefono:'81 3456 7890',fecha:iso(d.getDate()+7),hora:'12:00',direccion:'Corporativo Cemex, Constitución 444, Monterrey',tipo:'Corporativo',estatus:'confirmado',total:54000,anticipo:0,chofer_id:'ch1',notas:'Facturación requerida. Contacto: Lic. Ramírez.',entregado:false,recogido:false,items:[{mob_id:'m7',cantidad:20},{mob_id:'m5',cantidad:4},{mob_id:'m8',cantidad:2},{mob_id:'m6',cantidad:2}],created:iso(d.getDate()-4)},
-    {id:'e4',cliente:'Cumpleaños Sra. Martínez',telefono:'81 4567 8901',fecha:iso(d.getDate()+5),hora:'14:00',direccion:'Terraza privada, San Pedro Garza García',tipo:'Cumpleaños',estatus:'pendiente',total:12800,anticipo:0,chofer_id:null,notas:'Pendiente confirmar número final de invitados.',entregado:false,recogido:false,items:[{mob_id:'m1',cantidad:50},{mob_id:'m3',cantidad:5},{mob_id:'m9',cantidad:4}],created:iso(d.getDate()-1)},
-    {id:'e5',cliente:'Posada empresa TechMty',telefono:'81 5678 9012',fecha:iso(15,mo+1),hora:'20:00',direccion:'Roof Garden, Torre KOI, San Pedro',tipo:'Corporativo',estatus:'pendiente',total:31000,anticipo:0,chofer_id:null,notas:'',entregado:false,recogido:false,items:[{mob_id:'m2',cantidad:80},{mob_id:'m7',cantidad:15},{mob_id:'m6',cantidad:1},{mob_id:'m9',cantidad:6}],created:iso(d.getDate())},
-    {id:'e6',cliente:'Boda Ramírez-Solís',telefono:'81 6789 0123',fecha:iso(d.getDate()-4),hora:'18:00',direccion:'Hacienda El Rosario, Santiago N.L.',tipo:'Boda',estatus:'pagado',total:47500,anticipo:47500,chofer_id:'ch2',notas:'Evento concluido.',entregado:true,recogido:true,items:[{mob_id:'m1',cantidad:150},{mob_id:'m3',cantidad:15},{mob_id:'m8',cantidad:3}],created:iso(d.getDate()-25)}
+    {id:'e1',cliente:'Boda García-López',telefono:'81 1234 5678',fecha:iso(d.getDate()+3),hora:'17:00',direccion:'Jardín Los Encinos, Carr. Nacional Km 12, Monterrey',tipo:'Boda',estatus:'anticipo',total:38500,anticipo:15000,chofer_id:'ch1',notas:'Montaje 3 hrs antes. Acceso por portón trasero.',entregado:false,recogido:false,items:[{mob_id:'p43',cantidad:120},{mob_id:'p46',cantidad:12},{mob_id:'r8',cantidad:2},{mob_id:'p49',cantidad:120}],created:iso(d.getDate()-10)},
+    {id:'e2',cliente:'XV Años Fernanda',telefono:'81 2345 6789',fecha:iso(d.getDate()+1),hora:'19:00',direccion:'Salón Cristal, Av. Gonzalitos 340, Monterrey',tipo:'XV Años',estatus:'pagado',total:26000,anticipo:26000,chofer_id:'ch2',notas:'Cliente pide barra LED al centro.',entregado:false,recogido:false,items:[{mob_id:'p45',cantidad:100},{mob_id:'p44',cantidad:12},{mob_id:'p8',cantidad:1}],created:iso(d.getDate()-14)},
+    {id:'e3',cliente:'Evento corporativo Cemex',telefono:'81 3456 7890',fecha:iso(d.getDate()+7),hora:'12:00',direccion:'Corporativo Cemex, Constitución 444, Monterrey',tipo:'Corporativo',estatus:'confirmado',total:54000,anticipo:0,chofer_id:'ch1',notas:'Facturación requerida. Contacto: Lic. Ramírez.',entregado:false,recogido:false,items:[{mob_id:'p42',cantidad:20},{mob_id:'r8',cantidad:4},{mob_id:'p16',cantidad:2},{mob_id:'p8',cantidad:2}],created:iso(d.getDate()-4)},
+    {id:'e4',cliente:'Cumpleaños Sra. Martínez',telefono:'81 4567 8901',fecha:iso(d.getDate()+5),hora:'14:00',direccion:'Terraza privada, San Pedro Garza García',tipo:'Cumpleaños',estatus:'pendiente',total:12800,anticipo:0,chofer_id:null,notas:'Pendiente confirmar número final de invitados.',entregado:false,recogido:false,items:[{mob_id:'p43',cantidad:50},{mob_id:'p46',cantidad:5},{mob_id:'p2',cantidad:4}],created:iso(d.getDate()-1)},
+    {id:'e5',cliente:'Posada empresa TechMty',telefono:'81 5678 9012',fecha:iso(15,mo+1),hora:'20:00',direccion:'Roof Garden, Torre KOI, San Pedro',tipo:'Corporativo',estatus:'pendiente',total:31000,anticipo:0,chofer_id:null,notas:'',entregado:false,recogido:false,items:[{mob_id:'p45',cantidad:80},{mob_id:'p42',cantidad:15},{mob_id:'p8',cantidad:1},{mob_id:'p2',cantidad:6}],created:iso(d.getDate())},
+    {id:'e6',cliente:'Boda Ramírez-Solís',telefono:'81 6789 0123',fecha:iso(d.getDate()-4),hora:'18:00',direccion:'Hacienda El Rosario, Santiago N.L.',tipo:'Boda',estatus:'pagado',total:47500,anticipo:47500,chofer_id:'ch2',notas:'Evento concluido.',entregado:true,recogido:true,items:[{mob_id:'p43',cantidad:150},{mob_id:'p46',cantidad:15},{mob_id:'p16',cantidad:3}],created:iso(d.getDate()-25)}
   ];
   const clientes = [
     {id:'c1',numero_cliente:1,nombre:'García López',telefono:'81 1234 5678',email:'garcia@example.com',direccion:'',notas:''},
@@ -750,32 +816,51 @@ function openClienteModal(cli){
 
 /* ---------- INVENTARIO ---------- */
 function renderInventario(c){
+  if(!state.invTipo) state.invTipo='pieza';
+  const nP=state.data.mobiliario.filter(m=>(m.tipo||'pieza')==='pieza').length;
+  const nR=state.data.mobiliario.filter(m=>m.tipo==='producto').length;
+  const tabs=el(`<div class="seg" style="display:inline-flex;gap:4px;background:var(--bg2,#eef2f7);padding:4px;border-radius:12px;margin-bottom:14px">
+    <button class="seg-b" data-t="pieza">Existencias físicas <span class="pill">${nP}</span></button>
+    <button class="seg-b" data-t="producto">Productos de renta <span class="pill">${nR}</span></button>
+  </div>`);
+  c.appendChild(tabs);
   const bar=el(`<div class="toolbar">
-    <div class="search">${svg('search',16)}<input id="invSearch" placeholder="Buscar mobiliario..."></div>
+    <div class="search">${svg('search',16)}<input id="invSearch" placeholder="Buscar..."></div>
     <select class="filter" id="invCat"><option value="">Todas las categorías</option></select>
     <button class="btn btn-accent" id="invNew">${svg('plus',16)} Agregar artículo</button>
   </div>`);
   c.appendChild(bar);
-  const cats=[...new Set(state.data.mobiliario.map(m=>m.categoria).filter(Boolean))].sort();
-  cats.forEach(ct=>$('#invCat',bar).appendChild(el(`<option>${esc(ct)}</option>`)));
-  $('#invNew',bar).onclick=()=>openMobModal();
+  $('#invNew',bar).onclick=()=>openMobModal({tipo:state.invTipo});
 
-  const card=el(`<div class="card"><div class="t-wrap"><table><thead><tr><th>Artículo</th><th>Categoría</th><th style="text-align:center">Cantidad total</th><th style="text-align:right">Precio renta</th><th style="text-align:center">Comprometido hoy</th><th></th></tr></thead><tbody id="invBody"></tbody></table></div></div>`);
+  const hint=el(`<div class="muted" style="font-size:12.5px;margin:-4px 0 12px"></div>`);
+  c.appendChild(hint);
+  const card=el(`<div class="card"><div class="t-wrap"><table><thead><tr><th>Artículo</th><th>Categoría</th><th style="text-align:center">Cantidad</th><th style="text-align:right">Precio renta</th><th style="text-align:center">Comprometido hoy</th><th></th></tr></thead><tbody id="invBody"></tbody></table></div></div>`);
   c.appendChild(card);
+
+  const fillCats=()=>{
+    const sel=$('#invCat',bar); sel.innerHTML='<option value="">Todas las categorías</option>';
+    const cats=[...new Set(state.data.mobiliario.filter(m=>(m.tipo||'pieza')===state.invTipo).map(m=>m.categoria).filter(Boolean))].sort();
+    cats.forEach(ct=>sel.appendChild(el(`<option>${esc(ct)}</option>`)));
+  };
   const draw=()=>{
+    $$('.seg-b',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===state.invTipo));
+    hint.textContent = state.invTipo==='pieza'
+      ? 'Conteo físico real (lo que se carga y cuenta). Los artículos de apoyo no tienen precio.'
+      : 'Productos y paquetes que rentas, con precio. La cantidad de sets es aproximada; la existencia real está en la otra pestaña.';
     const q=($('#invSearch',bar).value||'').toLowerCase(), cf=$('#invCat',bar).value;
     const tb=$('#invBody',card); tb.innerHTML='';
-    const rows=state.data.mobiliario.filter(m=>!cf||m.categoria===cf).filter(m=>!q||m.nombre.toLowerCase().includes(q)).sort((a,b)=>(a.categoria+a.nombre).localeCompare(b.categoria+b.nombre));
-    if(!rows.length){ tb.appendChild(el(`<tr><td colspan="6">${emptyState('Sin artículos','Agrega tu mobiliario.').outerHTML}</td></tr>`)); return; }
+    const rows=state.data.mobiliario.filter(m=>(m.tipo||'pieza')===state.invTipo).filter(m=>!cf||m.categoria===cf).filter(m=>!q||m.nombre.toLowerCase().includes(q)).sort((a,b)=>(a.categoria+a.nombre).localeCompare(b.categoria+b.nombre));
+    if(!rows.length){ tb.appendChild(el(`<tr><td colspan="6">${emptyState('Sin artículos','Agrega tu inventario.').outerHTML}</td></tr>`)); return; }
     rows.forEach(m=>{
       const comprometido=m.cantidad_total-disponibleEn(m.id,todayISO());
       const pct=m.cantidad_total?Math.min(100,Math.round(comprometido/m.cantidad_total*100)):0;
       const cls=pct>=100?'none':pct>=70?'low':'';
+      const uni=m.unidad&&m.unidad!=='pieza'?` <span class="muted" style="font-weight:400;font-size:11px">${esc(m.unidad)}</span>`:'';
       const tr=el(`<tr>
         <td><b>${esc(m.nombre)}</b></td>
         <td><span class="pill">${esc(m.categoria||'—')}</span></td>
-        <td style="text-align:center;font-weight:600">${m.cantidad_total}</td>
-        <td style="text-align:right">${money(m.precio_renta)}</td>
+        <td style="text-align:center;font-weight:600">${m.cantidad_total}${uni}</td>
+        <td style="text-align:right">${m.precio_renta>0?money(m.precio_renta):'<span class="muted">—</span>'}</td>
         <td style="text-align:center">${comprometido>0?comprometido:'—'}<div class="stock-bar ${cls}" style="margin-left:auto"><i style="width:${pct}%"></i></div></td>
         <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-sm ed">Editar</button></td>
       </tr>`);
@@ -783,7 +868,8 @@ function renderInventario(c){
       tb.appendChild(tr);
     });
   };
-  $('#invSearch',bar).oninput=draw; $('#invCat',bar).onchange=draw; draw();
+  $$('.seg-b',tabs).forEach(b=>b.onclick=()=>{ state.invTipo=b.dataset.t; fillCats(); draw(); });
+  $('#invSearch',bar).oninput=draw; $('#invCat',bar).onchange=draw; fillCats(); draw();
 }
 
 /* ---------- FINANZAS ---------- */
@@ -932,7 +1018,7 @@ function openEventoModal(ev){
       const fecha=$('#f_fecha',modal).value;
       const disp=it.mob_id?disponibleEn(it.mob_id,fecha,e.id):null;
       const row=el(`<div class="item-row">
-        <select class="it-mob">${'<option value="">Selecciona...</option>'+state.data.mobiliario.map(m=>`<option value="${m.id}" ${it.mob_id===m.id?'selected':''}>${esc(m.nombre)} (${money(m.precio_renta)})</option>`).join('')}</select>
+        <select class="it-mob">${(()=>{const opt=m=>`<option value="${m.id}" ${it.mob_id===m.id?'selected':''}>${esc(m.nombre)}${m.precio_renta>0?' ('+money(m.precio_renta)+')':''}</option>`;const prods=state.data.mobiliario.filter(m=>m.tipo==='producto');const piez=state.data.mobiliario.filter(m=>(m.tipo||'pieza')==='pieza');return '<option value="">Selecciona...</option>'+(prods.length?'<optgroup label="Productos de renta">'+prods.map(opt).join('')+'</optgroup>':'')+(piez.length?'<optgroup label="Existencias físicas">'+piez.map(opt).join('')+'</optgroup>':'');})()}</select>
         <input type="number" class="it-qty" min="1" value="${it.cantidad||1}">
         <button class="rm">${svg('x',15)}</button>
       </div>`);
@@ -981,18 +1067,23 @@ function openEventoModal(ev){
    MODAL DE MOBILIARIO
    ========================================================================= */
 function openMobModal(mob){
-  const isNew=!mob;
-  const m = mob?{...mob}:{nombre:'',categoria:'',cantidad_total:1,precio_renta:0};
+  const isNew=!mob||!mob.id;
+  const m = (mob&&mob.id)?{...mob}:{nombre:'',categoria:'',cantidad_total:1,precio_renta:0,tipo:(mob&&mob.tipo)||'pieza',unidad:(mob&&mob.tipo==='producto')?'set':'pieza'};
   const cats=[...new Set(state.data.mobiliario.map(x=>x.categoria).filter(Boolean))].sort();
   const modal=el(`<div class="overlay"><div class="modal">
     <div class="modal-head"><h3>${isNew?'Nuevo artículo':'Editar artículo'}</h3><button class="x">${svg('x',18)}</button></div>
     <div class="modal-body">
-      <div class="form-field"><label>Nombre del artículo *</label><input id="m_nom" value="${esc(m.nombre)}" placeholder="Ej. Silla Tiffany blanca"></div>
-      <div class="form-field"><label>Categoría</label><input id="m_cat" list="catlist" value="${esc(m.categoria)}" placeholder="Ej. Sillas"><datalist id="catlist">${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
+      <div class="form-field"><label>Tipo</label><select id="m_tipo">
+        <option value="pieza" ${(m.tipo||'pieza')==='pieza'?'selected':''}>Existencia física (pieza)</option>
+        <option value="producto" ${m.tipo==='producto'?'selected':''}>Producto de renta (con precio)</option>
+      </select></div>
+      <div class="form-field"><label>Nombre del artículo *</label><input id="m_nom" value="${esc(m.nombre)}" placeholder="Ej. Mesa periquera dorada"></div>
+      <div class="form-field"><label>Categoría</label><input id="m_cat" list="catlist" value="${esc(m.categoria)}" placeholder="Ej. Periqueras"><datalist id="catlist">${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
       <div class="grid2">
-        <div class="form-field"><label>Cantidad total</label><input type="number" id="m_qty" min="0" value="${m.cantidad_total}"></div>
-        <div class="form-field"><label>Precio de renta (MXN)</label><input type="number" id="m_precio" min="0" value="${m.precio_renta}"></div>
+        <div class="form-field"><label>Cantidad</label><input type="number" id="m_qty" min="0" value="${m.cantidad_total}"></div>
+        <div class="form-field"><label>Unidad</label><input id="m_uni" value="${esc(m.unidad||'pieza')}" placeholder="pieza / set / paquete"></div>
       </div>
+      <div class="form-field"><label>Precio de renta (MXN) — 0 si es artículo de apoyo</label><input type="number" id="m_precio" min="0" value="${m.precio_renta}"></div>
     </div>
     <div class="modal-foot">
       <div>${!isNew?'<button class="btn btn-ghost btn-sm" id="delMob" style="color:var(--danger)">Eliminar</button>':''}</div>
@@ -1007,7 +1098,8 @@ function openMobModal(mob){
   $('#saveMob',modal).onclick=async()=>{
     const nom=$('#m_nom',modal).value.trim();
     if(!nom){ toast('Escribe el nombre del artículo','err'); return; }
-    Object.assign(m,{nombre:nom,categoria:$('#m_cat',modal).value.trim(),cantidad_total:+$('#m_qty',modal).value||0,precio_renta:+$('#m_precio',modal).value||0});
+    Object.assign(m,{nombre:nom,categoria:$('#m_cat',modal).value.trim(),cantidad_total:+$('#m_qty',modal).value||0,precio_renta:+$('#m_precio',modal).value||0,tipo:$('#m_tipo',modal).value,unidad:$('#m_uni',modal).value.trim()||'pieza'});
+    state.invTipo=m.tipo;
     await Store.saveMob(m); toast(isNew?'Artículo agregado':'Guardado','ok'); close(); render();
   };
 }
