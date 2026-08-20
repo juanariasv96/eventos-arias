@@ -355,6 +355,7 @@ const ICON = {
   plus:'<path d="M12 5v14M5 12h14"/>',
   users:'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>',
   x:'<path d="M18 6L6 18M6 6l12 12"/>',
+  clip:'<path d="M9 3h6a1 1 0 011 1v1h1a2 2 0 012 2v13a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h1V4a1 1 0 011-1z"/><path d="M9 12l2 2 4-4"/>',
   empty:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 15h8"/>'
 };
 const svg = (name,w=20)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="${w}" height="${w}">${ICON[name]||''}</svg>`;
@@ -380,7 +381,7 @@ const state = {
   user:{name:'Administradora',role:'admin',email:'admin@eventosarias.com'},
   view:'dashboard',
   calDate:new Date(),
-  data:{ mobiliario:[], eventos:[], choferes:[], clientes:[] }
+  data:{ mobiliario:[], eventos:[], choferes:[], clientes:[], encargos:[] }
 };
 
 /* =========================================================================
@@ -479,7 +480,13 @@ function seedDemo(){
     {id:'c2',numero_cliente:2,nombre:'Fernanda Martínez',telefono:'81 2345 6789',email:'',direccion:'',notas:''},
     {id:'c3',numero_cliente:3,nombre:'Corporativo Cemex',telefono:'81 3456 7890',email:'eventos@cemex.com',direccion:'',notas:'Requiere factura'}
   ];
-  return {choferes,mobiliario,eventos,clientes};
+  const encargos = [
+    {id:'en1',titulo:'Recoger toldo 6x6 en bodega',chofer_id:'ch1',fecha:iso(d.getDate()+1),prioridad:'urgente',notas:'Está en el rack del fondo.',estatus:'pendiente',creado_en:iso(d.getDate())},
+    {id:'en2',titulo:'Comprar 20 bolsas de hielo',chofer_id:'ch2',fecha:iso(d.getDate()+1),prioridad:'normal',notas:'',estatus:'pendiente',creado_en:iso(d.getDate())},
+    {id:'en3',titulo:'Llevar generador a mantenimiento',chofer_id:'ch1',fecha:iso(d.getDate()+3),prioridad:'normal',notas:'Cambio de aceite y filtro.',estatus:'pendiente',creado_en:iso(d.getDate())},
+    {id:'en4',titulo:'Lavar fundas de sillas grises',chofer_id:'ch2',fecha:iso(d.getDate()-1),prioridad:'normal',notas:'',estatus:'hecho',creado_en:iso(d.getDate()-2)}
+  ];
+  return {choferes,mobiliario,eventos,clientes,encargos};
 }
 
 /* =========================================================================
@@ -502,21 +509,24 @@ const Store = {
 
   async loadAll(){
     if(state.mode==='supabase'){
-      const [mob,ev,ch,cl] = await Promise.all([
+      const [mob,ev,ch,cl,en] = await Promise.all([
         state.sb.from('mobiliario').select('*').order('categoria'),
         state.sb.from('eventos').select('*, evento_items(*)').order('fecha'),
         state.sb.from('choferes').select('*').order('nombre'),
-        state.sb.from('clientes').select('*').order('numero_cliente')
+        state.sb.from('clientes').select('*').order('numero_cliente'),
+        state.sb.from('encargos').select('*').order('fecha')
       ]);
       state.data.mobiliario = mob.data||[];
       state.data.choferes = ch.data||[];
       state.data.clientes = cl.data||[];
+      state.data.encargos = en.data||[];
       state.data.eventos = (ev.data||[]).map(e=>({...e, items:(e.evento_items||[]).map(i=>({mob_id:i.mobiliario_id,cantidad:i.cantidad}))}));
       return;
     }
     const saved = this._loadLocal();
     state.data = saved || seedDemo();
     if(!state.data.clientes) state.data.clientes=[];
+    if(!state.data.encargos) state.data.encargos=[];
     this._saveLocal();
   },
 
@@ -572,6 +582,26 @@ const Store = {
   async deleteCliente(id){
     if(state.mode==='supabase'){ await state.sb.from('clientes').delete().eq('id',id); await this.loadAll(); return; }
     state.data.clientes = state.data.clientes.filter(c=>c.id!==id); this._saveLocal();
+  },
+  async saveEncargo(en){
+    if(state.mode==='supabase'){
+      const row={titulo:en.titulo,chofer_id:en.chofer_id||null,fecha:en.fecha||null,prioridad:en.prioridad||'normal',notas:en.notas||null,estatus:en.estatus||'pendiente'};
+      if(en.id) await state.sb.from('encargos').update(row).eq('id',en.id);
+      else await state.sb.from('encargos').insert(row);
+      await this.loadAll(); return;
+    }
+    const list=state.data.encargos;
+    if(en.id){ const i=list.findIndex(x=>x.id===en.id); list[i]={...list[i],...en}; }
+    else{ en.id=uid(); en.estatus=en.estatus||'pendiente'; en.creado_en=todayISO(); list.push(en); }
+    this._saveLocal();
+  },
+  async deleteEncargo(id){
+    if(state.mode==='supabase'){ await state.sb.from('encargos').delete().eq('id',id); await this.loadAll(); return; }
+    state.data.encargos = state.data.encargos.filter(e=>e.id!==id); this._saveLocal();
+  },
+  async patchEncargo(id,patch){
+    if(state.mode==='supabase'){ await state.sb.from('encargos').update(patch).eq('id',id); await this.loadAll(); return; }
+    const e=state.data.encargos.find(x=>x.id===id); if(e)Object.assign(e,patch); this._saveLocal();
   }
 };
 function cleanEvRow(r){ const {items,evento_items,...rest}=r; return rest; }
@@ -604,6 +634,7 @@ const NAV_ADMIN = [
   {k:'inventario',label:'Inventario',icon:'box'},
   {k:'finanzas',label:'Finanzas',icon:'money'},
   {k:'choferes',label:'Choferes',icon:'truck'},
+  {k:'encargos',label:'Encargos',icon:'clip'},
 ];
 const NAV_CHOFER = [ {k:'agenda',label:'Mi agenda',icon:'truck'} ];
 
@@ -627,11 +658,11 @@ function go(view){
 /* =========================================================================
    RENDER PRINCIPAL
    ========================================================================= */
-const TITLES={dashboard:'Panel',calendario:'Calendario',eventos:'Eventos',clientes:'Clientes',inventario:'Inventario de mobiliario',finanzas:'Finanzas',choferes:'Choferes',agenda:'Mi agenda'};
+const TITLES={dashboard:'Panel',calendario:'Calendario',eventos:'Eventos',clientes:'Clientes',inventario:'Inventario de mobiliario',finanzas:'Finanzas',choferes:'Choferes',encargos:'Encargos a choferes',agenda:'Mi agenda'};
 function render(){
   $('#pageTitle').textContent=TITLES[state.view]||'';
   const c=$('#content'); c.innerHTML='';
-  ({dashboard:renderDashboard,calendario:renderCalendario,eventos:renderEventos,clientes:renderClientes,inventario:renderInventario,finanzas:renderFinanzas,choferes:renderChoferes,agenda:renderAgenda}[state.view]||renderDashboard)(c);
+  ({dashboard:renderDashboard,calendario:renderCalendario,eventos:renderEventos,clientes:renderClientes,inventario:renderInventario,finanzas:renderFinanzas,choferes:renderChoferes,encargos:renderEncargos,agenda:renderAgenda}[state.view]||renderDashboard)(c);
 }
 
 /* ---------- DASHBOARD ---------- */
@@ -928,14 +959,94 @@ function renderChoferes(c){
   c.appendChild(grid);
 }
 
+/* ---------- ENCARGOS (vista admin) ---------- */
+function renderEncargos(c){
+  const bar=el(`<div class="toolbar">
+    <div class="search">${svg('search',16)}<input id="enSearch" placeholder="Buscar encargo..."></div>
+    <select class="filter" id="enChofer"><option value="">Todos los choferes</option></select>
+    <select class="filter" id="enEst"><option value="">Todos</option><option value="pendiente">Pendientes</option><option value="hecho">Hechos</option></select>
+    <button class="btn btn-accent" id="enNew">${svg('plus',16)} Nuevo encargo</button>
+  </div>`);
+  c.appendChild(bar);
+  state.data.choferes.forEach(ch=>$('#enChofer',bar).appendChild(el(`<option value="${ch.id}">${esc(ch.nombre)}</option>`)));
+  $('#enNew',bar).onclick=()=>openEncargoModal();
+  const pend=state.data.encargos.filter(e=>e.estatus!=='hecho').length;
+  c.appendChild(el(`<div class="muted" style="font-size:12.5px;margin:-4px 0 12px">${pend} encargo(s) pendiente(s). Asigna pendientes a los choferes; ellos los marcan como hechos desde su celular.</div>`));
+  const card=el(`<div class="card"><div class="t-wrap"><table><thead><tr><th>Encargo</th><th>Chofer</th><th>Fecha</th><th style="text-align:center">Prioridad</th><th style="text-align:center">Estado</th><th></th></tr></thead><tbody id="enBody"></tbody></table></div></div>`);
+  c.appendChild(card);
+  const draw=()=>{
+    const q=($('#enSearch',bar).value||'').toLowerCase(), cf=$('#enChofer',bar).value, ef=$('#enEst',bar).value;
+    const tb=$('#enBody',card); tb.innerHTML='';
+    const rows=state.data.encargos
+      .filter(e=>!cf||e.chofer_id===cf)
+      .filter(e=>!ef||(e.estatus||'pendiente')===ef)
+      .filter(e=>!q||(e.titulo||'').toLowerCase().includes(q))
+      .sort((a,b)=>((a.estatus==='hecho')-(b.estatus==='hecho'))||String(a.fecha||'').localeCompare(String(b.fecha||'')));
+    if(!rows.length){ tb.appendChild(el(`<tr><td colspan="6">${emptyState('Sin encargos','Crea un encargo para un chofer.').outerHTML}</td></tr>`)); return; }
+    rows.forEach(en=>{
+      const ch=choferById(en.chofer_id);
+      const hecho=en.estatus==='hecho';
+      const urg=en.prioridad==='urgente';
+      const tr=el(`<tr style="${hecho?'opacity:.55':''}">
+        <td><b>${esc(en.titulo)}</b>${en.notas?`<div class="muted" style="font-size:11.5px">${esc(en.notas)}</div>`:''}</td>
+        <td>${ch?esc(ch.nombre):'<span class="muted">Sin asignar</span>'}</td>
+        <td>${en.fecha?fmtFecha(en.fecha):'<span class="muted">—</span>'}</td>
+        <td style="text-align:center"><span class="pill" style="${urg?'background:var(--danger-bg);color:var(--danger)':''}">${urg?'Urgente':'Normal'}</span></td>
+        <td style="text-align:center"><span class="badge ${hecho?'b-pagado':'b-pendiente'}">${hecho?'✓ Hecho':'Pendiente'}</span></td>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-ghost btn-sm mk">${hecho?'Reabrir':'Marcar hecho'}</button>
+          <button class="btn btn-ghost btn-sm ed">Editar</button>
+        </td>
+      </tr>`);
+      $('.mk',tr).onclick=async()=>{ const ns=hecho?'pendiente':'hecho'; await Store.patchEncargo(en.id,{estatus:ns}); en.estatus=ns; toast(hecho?'Reabierto':'Marcado como hecho','ok'); render(); };
+      $('.ed',tr).onclick=()=>openEncargoModal(en);
+      tb.appendChild(tr);
+    });
+  };
+  $('#enSearch',bar).oninput=draw; $('#enChofer',bar).onchange=draw; $('#enEst',bar).onchange=draw; draw();
+}
+function openEncargoModal(en){
+  const isNew=!en;
+  const m = en?{...en}:{titulo:'',chofer_id:(state.data.choferes[0]?state.data.choferes[0].id:null),fecha:todayISO(),prioridad:'normal',notas:'',estatus:'pendiente'};
+  const modal=el(`<div class="overlay"><div class="modal">
+    <div class="modal-head"><h3>${isNew?'Nuevo encargo':'Editar encargo'}</h3><button class="x">${svg('x',18)}</button></div>
+    <div class="modal-body">
+      <div class="form-field"><label>¿Qué hay que hacer? *</label><input id="e_tit" value="${esc(m.titulo)}" placeholder="Ej. Recoger toldo en bodega"></div>
+      <div class="grid2">
+        <div class="form-field"><label>Chofer</label><select id="e_ch"><option value="">Sin asignar</option>${state.data.choferes.map(ch=>`<option value="${ch.id}" ${m.chofer_id===ch.id?'selected':''}>${esc(ch.nombre)}</option>`).join('')}</select></div>
+        <div class="form-field"><label>Fecha</label><input type="date" id="e_fecha" value="${esc(m.fecha||'')}"></div>
+      </div>
+      <div class="form-field"><label>Prioridad</label><select id="e_pri"><option value="normal" ${m.prioridad!=='urgente'?'selected':''}>Normal</option><option value="urgente" ${m.prioridad==='urgente'?'selected':''}>Urgente</option></select></div>
+      <div class="form-field"><label>Notas (opcional)</label><textarea id="e_notas" rows="2" placeholder="Detalles del encargo...">${esc(m.notas||'')}</textarea></div>
+    </div>
+    <div class="modal-foot">
+      <div>${!isNew?'<button class="btn btn-ghost btn-sm" id="delEn" style="color:var(--danger)">Eliminar</button>':''}</div>
+      <div style="display:flex;gap:10px"><button class="btn btn-ghost" id="cancelEn">Cancelar</button><button class="btn btn-primary" id="saveEn">${isNew?'Crear':'Guardar'}</button></div>
+    </div>
+  </div></div>`);
+  $('#modalRoot').appendChild(modal);
+  const close=()=>modal.remove();
+  $('.x',modal).onclick=close; $('#cancelEn',modal).onclick=close;
+  modal.onclick=(e)=>{ if(e.target===modal)close(); };
+  if(!isNew)$('#delEn',modal).onclick=async()=>{ if(confirm('¿Eliminar este encargo?')){ await Store.deleteEncargo(m.id); toast('Encargo eliminado','ok'); close(); render(); } };
+  $('#saveEn',modal).onclick=async()=>{
+    const t=$('#e_tit',modal).value.trim();
+    if(!t){ toast('Escribe qué hay que hacer','err'); return; }
+    Object.assign(m,{titulo:t,chofer_id:$('#e_ch',modal).value||null,fecha:$('#e_fecha',modal).value||null,prioridad:$('#e_pri',modal).value,notas:$('#e_notas',modal).value.trim()});
+    await Store.saveEncargo(m); toast(isNew?'Encargo creado':'Guardado','ok'); close(); render();
+  };
+}
+
 /* ---------- AGENDA (vista chofer) ---------- */
 function renderAgenda(c){
   const chofer = state.data.choferes.find(ch=>ch.nombre===state.user.name) || state.data.choferes[0];
   const hoy=todayISO();
   const mios=state.data.eventos.filter(e=>e.chofer_id===(chofer?chofer.id:null)&&e.estatus!=='cancelado'&&e.fecha>=hoy).sort((a,b)=>a.fecha.localeCompare(b.fecha));
-  c.appendChild(el(`<p style="color:var(--muted);margin-bottom:16px">Eventos asignados a <b style="color:var(--navy)">${esc(chofer?chofer.nombre:'—')}</b></p>`));
-  if(!mios.length){ c.appendChild(emptyState('Sin eventos asignados','Cuando la administradora te asigne un evento aparecerá aquí.')); return; }
-  // agrupar por fecha
+  c.appendChild(el(`<p style="color:var(--muted);margin-bottom:16px">Agenda de <b style="color:var(--navy)">${esc(chofer?chofer.nombre:'—')}</b></p>`));
+
+  // ---- Eventos ----
+  c.appendChild(el(`<h3 style="color:var(--navy);font-size:15px;margin:4px 0 10px">${svg('truck',17)} Eventos</h3>`));
+  if(!mios.length){ c.appendChild(el(`<p class="muted" style="font-size:13px;margin-bottom:14px">Sin eventos próximos asignados.</p>`)); }
   const groups={}; mios.forEach(e=>{(groups[e.fecha]=groups[e.fecha]||[]).push(e);});
   Object.keys(groups).sort().forEach(f=>{
     const day=el(`<div class="driver-day"><div class="dh">${svg('cal',16)} ${fmtFechaLarga(f)}</div></div>`);
@@ -955,6 +1066,27 @@ function renderAgenda(c){
       day.appendChild(job);
     });
     c.appendChild(day);
+  });
+
+  // ---- Encargos ----
+  const misEnc = state.data.encargos
+    .filter(en=>en.chofer_id===(chofer?chofer.id:null))
+    .sort((a,b)=>((a.estatus==='hecho')-(b.estatus==='hecho'))||String(a.fecha||'').localeCompare(String(b.fecha||'')));
+  const pendEnc = misEnc.filter(en=>en.estatus!=='hecho').length;
+  c.appendChild(el(`<h3 style="color:var(--navy);font-size:15px;margin:22px 0 10px">${svg('clip',17)} Encargos${pendEnc?` <span class="pill" style="background:var(--accent);color:#fff">${pendEnc}</span>`:''}</h3>`));
+  if(!misEnc.length){ c.appendChild(el(`<p class="muted" style="font-size:13px">Sin encargos asignados. Cuando la administradora te asigne uno aparecerá aquí.</p>`)); return; }
+  misEnc.forEach(en=>{
+    const hecho=en.estatus==='hecho', urg=en.prioridad==='urgente';
+    const job=el(`<div class="job" style="${hecho?'opacity:.6':''}">
+      <div class="jt"><b>${esc(en.titulo)}</b>${urg&&!hecho?'<span class="badge b-cancelado">Urgente</span>':''}</div>
+      ${en.fecha?`<div class="addr">${svg('cal',15)} ${fmtFechaLarga(en.fecha)}</div>`:''}
+      ${en.notas?`<div style="margin-top:6px;font-size:12.5px;color:var(--muted)">📋 ${esc(en.notas)}</div>`:''}
+      <div class="job-actions">
+        <button class="btn btn-sm ${hecho?'check-done':'check-todo'}" data-mk>${hecho?'✓ Hecho':'Marcar hecho'}</button>
+      </div>
+    </div>`);
+    $('[data-mk]',job).onclick=async()=>{ const ns=hecho?'pendiente':'hecho'; await Store.patchEncargo(en.id,{estatus:ns}); en.estatus=ns; toast(ns==='hecho'?'Encargo hecho':'Reabierto','ok'); render(); };
+    c.appendChild(job);
   });
 }
 
