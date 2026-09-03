@@ -191,6 +191,23 @@ select.filter:focus{outline:none;border-color:var(--blue)}
 .modal-lg{max-width:820px}
 .chk{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink);margin:4px 0 6px;cursor:pointer}
 .chk input{width:17px;height:17px}
+/* Firmas, fotos y ubicación (chofer) */
+.sig-pad{border:2px dashed var(--line);border-radius:12px;background:#fff;touch-action:none;width:100%;height:190px;display:block}
+.sig-tools{display:flex;justify-content:space-between;align-items:center;margin:6px 0 2px;font-size:12px;color:var(--muted)}
+.photo-grid{display:flex;flex-wrap:wrap;gap:9px;margin:8px 0}
+.photo-wrap{position:relative;display:inline-block}
+.photo-thumb{width:78px;height:78px;border-radius:9px;object-fit:cover;border:1px solid var(--line);cursor:pointer;display:block}
+.photo-wrap .rmf{position:absolute;top:-7px;right:-7px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.casa-photo{width:100%;max-height:190px;object-fit:cover;border-radius:11px;border:1px solid var(--line);cursor:pointer;display:block}
+.lightbox{position:fixed;inset:0;background:rgba(0,20,40,.9);display:flex;align-items:center;justify-content:center;z-index:9999;padding:18px;cursor:zoom-out}
+.lightbox img{max-width:100%;max-height:100%;border-radius:10px}
+.pay-seg{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 2px}
+.pay-seg label{flex:1;min-width:92px;text-align:center;padding:10px 6px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;cursor:pointer;color:var(--ink);transition:.12s}
+.pay-seg input{position:absolute;opacity:0;pointer-events:none}
+.pay-seg label.on{border-color:var(--blue);background:var(--info-bg);color:var(--navy);font-weight:700}
+.agenda-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.agenda-btns .btn{flex:1;min-width:130px}
+.chk-done-lbl{font-size:11.5px;color:var(--ok);margin-top:4px}
 .cot-item{display:grid;grid-template-columns:1fr 68px 100px 92px 34px;gap:8px;align-items:center;margin-bottom:8px}
 .cot-item .ci-imp{font-weight:600;font-size:13px;text-align:right;color:var(--navy)}
 .cot-item .rm{width:34px;height:38px;border-radius:8px;background:var(--danger-bg);color:var(--danger);display:flex;align-items:center;justify-content:center;border:0;cursor:pointer}
@@ -539,7 +556,7 @@ const Store = {
     if(state.mode==='supabase'){
       const [mob,ev,ch,cl,en,co] = await Promise.all([
         state.sb.from('mobiliario').select('*').order('categoria'),
-        state.sb.from('eventos').select('*, evento_items(*)').order('fecha'),
+        state.sb.from('eventos').select('*, evento_items(*), evento_fotos(*)').order('fecha'),
         state.sb.from('choferes').select('*').order('nombre'),
         state.sb.from('clientes').select('*').order('numero_cliente'),
         state.sb.from('encargos').select('*').order('fecha'),
@@ -549,7 +566,7 @@ const Store = {
       state.data.choferes = ch.data||[];
       state.data.clientes = cl.data||[];
       state.data.encargos = (en.data||[]).map(e=>({...e, chofer_ids:(Array.isArray(e.chofer_ids)&&e.chofer_ids.length)?e.chofer_ids:(e.chofer_id?[e.chofer_id]:[])}));
-      state.data.eventos = (ev.data||[]).map(e=>({...e, items:(e.evento_items||[]).map(i=>({mob_id:i.mobiliario_id,cantidad:i.cantidad}))}));
+      state.data.eventos = (ev.data||[]).map(e=>({...e, items:(e.evento_items||[]).map(i=>({mob_id:i.mobiliario_id,cantidad:i.cantidad})), fotos:(e.evento_fotos||[]).map(f=>({id:f.id,tipo:f.tipo,url:f.url,nota:f.nota}))}));
       state.data.cotizaciones = (co.data||[]).map(c=>({...c, items:(c.cotizacion_items||[]).map(i=>({mob_id:i.mobiliario_id,descripcion:i.descripcion,cantidad:i.cantidad,precio:i.precio_unitario}))}));
       return;
     }
@@ -583,6 +600,14 @@ const Store = {
   async patchEvento(id,patch){
     if(state.mode==='supabase'){ await state.sb.from('eventos').update(patch).eq('id',id); await this.loadAll(); return; }
     const e=state.data.eventos.find(x=>x.id===id); if(e)Object.assign(e,patch); this._saveLocal();
+  },
+  async saveEventoFoto(evento_id, url, tipo, nota){
+    if(state.mode==='supabase'){ await state.sb.from('evento_fotos').insert({evento_id,url,tipo:tipo||'dano',nota:nota||null}); await this.loadAll(); return; }
+    const e=state.data.eventos.find(x=>x.id===evento_id); if(e){ e.fotos=e.fotos||[]; e.fotos.push({id:uid(),tipo:tipo||'dano',url,nota:nota||null}); } this._saveLocal();
+  },
+  async deleteEventoFoto(evento_id, foto_id){
+    if(state.mode==='supabase'){ await state.sb.from('evento_fotos').delete().eq('id',foto_id); await this.loadAll(); return; }
+    const e=state.data.eventos.find(x=>x.id===evento_id); if(e&&e.fotos){ e.fotos=e.fotos.filter(f=>f.id!==foto_id); } this._saveLocal();
   },
   async saveMob(m){
     if(state.mode==='supabase'){
@@ -658,7 +683,32 @@ const Store = {
     const c=state.data.cotizaciones.find(x=>x.id===id); if(c)Object.assign(c,patch); this._saveLocal();
   }
 };
-function cleanEvRow(r){ const {items,evento_items,...rest}=r; return rest; }
+function cleanEvRow(r){ const {items,evento_items,evento_fotos,fotos,...rest}=r; return rest; }
+
+/* ---- Media (fotos y firmas): comprime y sube a Storage; en demo usa dataURL ---- */
+function fileToImage(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=URL.createObjectURL(file); }); }
+async function compressImage(file, maxDim=1400, quality=0.62){
+  try{
+    const img=await fileToImage(file); let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+    const scale=Math.min(1, maxDim/Math.max(w,h)); w=Math.round(w*scale); h=Math.round(h*scale);
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+    cv.getContext('2d').drawImage(img,0,0,w,h); URL.revokeObjectURL(img.src);
+    return await new Promise(r=>cv.toBlob(b=>r(b||file),'image/jpeg',quality));
+  }catch(e){ return file; }
+}
+function blobToDataURL(b){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(b); }); }
+async function mediaUpload(path, blob){
+  if(state.mode==='supabase' && state.sb && state.sb.storage){
+    const { error } = await state.sb.storage.from('eventos').upload(path, blob, {upsert:true, contentType:blob.type||'image/jpeg'});
+    if(error) throw error;
+    const { data } = state.sb.storage.from('eventos').getPublicUrl(path);
+    return data.publicUrl;
+  }
+  return await blobToDataURL(blob); // modo demo
+}
+function mapsUrl(e){ if(e.mapa_url) return e.mapa_url; const q=[e.direccion,'Monterrey N.L.'].filter(Boolean).join(', '); return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q||e.cliente||''); }
+function lightbox(url){ const lb=el(`<div class="lightbox"><img src="${url}"></div>`); lb.onclick=()=>lb.remove(); document.body.appendChild(lb); }
+const FORMAS_PAGO=['Efectivo','Transferencia','Tarjeta','Depósito','Otro'];
 function cleanCotRow(r){ const {items,cotizacion_items,...rest}=r; if(rest.folio==null) delete rest.folio; return rest; }
 
 /* ---------- Helpers de negocio ---------- */
@@ -1389,7 +1439,7 @@ function openCotizacionDoc(cot){
 function renderAgenda(c){
   const chofer = state.data.choferes.find(ch=>ch.nombre===state.user.name) || state.data.choferes[0];
   const hoy=todayISO();
-  const mios=state.data.eventos.filter(e=>e.chofer_id===(chofer?chofer.id:null)&&e.estatus!=='cancelado'&&e.fecha>=hoy).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const mios=state.data.eventos.filter(e=>e.chofer_id===(chofer?chofer.id:null)&&e.estatus!=='cancelado'&&(e.fecha>=hoy||!e.recogido)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   c.appendChild(el(`<p style="color:var(--muted);margin-bottom:16px">Agenda de <b style="color:var(--navy)">${esc(chofer?chofer.nombre:'—')}</b></p>`));
 
   // ---- Eventos ----
@@ -1399,18 +1449,36 @@ function renderAgenda(c){
   Object.keys(groups).sort().forEach(f=>{
     const day=el(`<div class="driver-day"><div class="dh">${svg('cal',16)} ${fmtFechaLarga(f)}</div></div>`);
     groups[f].forEach(e=>{
+      const danos=(e.fotos||[]).filter(f=>f.tipo==='dano');
+      const saldo=Math.max(0,(Number(e.total)||0)-(Number(e.anticipo)||0));
       const job=el(`<div class="job">
         <div class="jt"><b>${esc(e.cliente)}</b><span class="badge b-${e.estatus}">${STATUS[e.estatus].label}</span></div>
         <div class="addr">${svg('clock',15)} ${esc(e.hora||'Hora por confirmar')}</div>
         <div class="addr">${svg('pin',15)} ${esc(e.direccion||'Dirección por confirmar')}</div>
+        <div class="agenda-btns" style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm ubic">${svg('pin',15)} Ver ubicación</button></div>
+        ${e.foto_casa_url?`<div style="margin:8px 0"><div class="muted" style="font-size:11.5px;margin-bottom:4px">📷 Así se ve el lugar (foto del cliente)</div><img class="casa-photo casaimg" src="${e.foto_casa_url}"></div>`:''}
         <div class="load"><b>Mobiliario a cargar</b><ul>${(e.items||[]).map(it=>{const m=mobById(it.mob_id);return `<li><span>${esc(m?m.nombre:'—')}</span><span>${it.cantidad}</span></li>`;}).join('')||'<li>—</li>'}</ul></div>
         ${e.notas?`<div style="margin-top:8px;font-size:12.5px;color:var(--muted)">📋 ${esc(e.notas)}</div>`:''}
-        <div class="job-actions">
-          <button class="btn btn-sm ${e.entregado?'check-done':'check-todo'}" data-a="entregado">${e.entregado?'✓ Entregado':'Marcar entregado'}</button>
-          <button class="btn btn-sm ${e.recogido?'check-done':'check-todo'}" data-a="recogido">${e.recogido?'✓ Recogido':'Marcar recogido'}</button>
+        <div style="margin-top:10px">
+          <div class="muted" style="font-size:11.5px;margin-bottom:2px">Fotos de daño / incidencias del mobiliario</div>
+          <div class="photo-grid danosgrid">${danos.map(f=>`<span class="photo-wrap"><img class="photo-thumb" data-url="${f.url}" src="${f.url}"><button class="rmf" data-del="${f.id}">×</button></span>`).join('')||'<span class="muted" style="font-size:12px">Sin fotos</span>'}</div>
+          <button class="btn btn-ghost btn-sm addfoto">${svg('plus',15)} Agregar foto de daño</button>
+          <input type="file" accept="image/*" class="danoinput" style="display:none">
         </div>
+        <div class="agenda-btns" style="margin-top:12px">
+          <button class="btn btn-sm ${e.entregado?'check-done':'check-todo'}" data-firma="entrega">${e.entregado?'✓ Entregado (firmado)':'Registrar entrega + firma'}</button>
+          <button class="btn btn-sm ${e.recogido?'check-done':'check-todo'}" data-firma="recoge">${e.recogido?'✓ Recogido (firmado)':'Registrar recolección + firma'}</button>
+        </div>
+        ${saldo>0&&!e.recogido?`<div class="chk-done-lbl" style="color:var(--warn)">Saldo pendiente ${money(saldo)} — al registrar la recolección podrás capturar la forma de pago.</div>`:''}
       </div>`);
-      $$('[data-a]',job).forEach(b=>b.onclick=async()=>{ const key=b.dataset.a; await Store.patchEvento(e.id,{[key]:!e[key]}); e[key]=!e[key]; toast(e[key]?'Marcado como '+key:'Desmarcado','ok'); render(); });
+      $('.ubic',job).onclick=()=>window.open(mapsUrl(e),'_blank','noopener');
+      const casaimg=$('.casaimg',job); if(casaimg) casaimg.onclick=()=>lightbox(e.foto_casa_url);
+      $$('.photo-thumb',job).forEach(img=>img.onclick=()=>lightbox(img.dataset.url));
+      $$('[data-del]',job).forEach(b=>b.onclick=async()=>{ if(confirm('¿Quitar esta foto?')){ await Store.deleteEventoFoto(e.id,b.dataset.del); toast('Foto eliminada','ok'); render(); } });
+      const di=$('.danoinput',job);
+      $('.addfoto',job).onclick=()=>di.click();
+      di.onchange=async()=>{ const f=di.files[0]; if(!f) return; toast('Subiendo foto...','ok'); try{ const blob=await compressImage(f); const url=await mediaUpload(`danos/${e.id}-${Date.now()}.jpg`,blob); await Store.saveEventoFoto(e.id,url,'dano'); toast('Foto agregada','ok'); render(); }catch(err){ toast('No se pudo subir la foto','err'); } };
+      $$('[data-firma]',job).forEach(b=>b.onclick=()=>openFirmaModal(e,b.dataset.firma));
       day.appendChild(job);
     });
     c.appendChild(day);
@@ -1421,7 +1489,7 @@ function renderAgenda(c){
     .filter(en=>chofer&&enChoferIds(en).includes(chofer.id))
     .sort((a,b)=>((a.estatus==='hecho')-(b.estatus==='hecho'))||String(a.fecha||'').localeCompare(String(b.fecha||'')));
   const pendEnc = misEnc.filter(en=>en.estatus!=='hecho').length;
-  c.appendChild(el(`<h3 style="color:var(--navy);font-size:15px;margin:22px 0 10px">${svg('clip',17)} Encargos${pendEnc?` <span class="pill" style="background:var(--accent);color:#fff">${pendEnc}</span>`:''}</h3>`));
+  c.appendChild(el(`<h3 style="color:var(--navy);font-size:15px;margin:22px 0 10px">${svg('clip',17)} Encargos${pendEnc?` <span class="pill" style="background:var(--blue);color:#fff">${pendEnc}</span>`:''}</h3>`));
   if(!misEnc.length){ c.appendChild(el(`<p class="muted" style="font-size:13px">Sin encargos asignados. Cuando la administradora te asigne uno aparecerá aquí.</p>`)); return; }
   misEnc.forEach(en=>{
     const hecho=en.estatus==='hecho', urg=en.prioridad==='urgente';
@@ -1436,6 +1504,99 @@ function renderAgenda(c){
     $('[data-mk]',job).onclick=async()=>{ const ns=hecho?'pendiente':'hecho'; await Store.patchEncargo(en.id,{estatus:ns}); en.estatus=ns; toast(ns==='hecho'?'Encargo hecho':'Reabierto','ok'); render(); };
     c.appendChild(job);
   });
+}
+
+/* ---- Modal de firma del cliente (entrega / recolección) ---- */
+function openFirmaModal(e, tipo, forceEdit){
+  const esEntrega = tipo==='entrega';
+  const titulo = esEntrega?'Entrega — firma de recibido':'Recolección — firma de recogido';
+  const doneKey = esEntrega?'entregado':'recogido';
+  const yaHecho = !!e[doneKey];
+  const urlPrev = esEntrega?e.firma_entrega_url:e.firma_recoge_url;
+  const nomPrev = (esEntrega?e.firma_entrega_nombre:e.firma_recoge_nombre)||e.cliente||'';
+  const comPrev = (esEntrega?e.comentario_entrega:e.comentario_recoge)||'';
+  const saldo = Math.max(0,(Number(e.total)||0)-(Number(e.anticipo)||0));
+
+  // ---- Modo ver (ya firmado) ----
+  if(yaHecho && !forceEdit){
+    const modal=el(`<div class="overlay"><div class="modal">
+      <div class="modal-head"><h3>${titulo}</h3><button class="x">${svg('x',18)}</button></div>
+      <div class="modal-body">
+        <div class="muted" style="font-size:12.5px">Firmado por <b style="color:var(--navy)">${esc(nomPrev||'—')}</b></div>
+        ${urlPrev?`<img src="${urlPrev}" style="width:100%;max-height:200px;object-fit:contain;border:1px solid var(--line);border-radius:10px;margin:8px 0;background:#fff">`:'<p class="muted" style="font-size:13px">Sin firma registrada.</p>'}
+        ${comPrev?`<div style="font-size:13px;margin-top:6px">💬 ${esc(comPrev)}</div>`:''}
+        ${!esEntrega&&e.forma_pago?`<div style="font-size:13px;margin-top:8px">💵 Pago al recoger: <b>${esc(e.forma_pago)}</b>${e.pago_final?` · ${money(e.pago_final)}`:''}</div>`:''}
+      </div>
+      <div class="modal-foot"><div></div><div style="display:flex;gap:10px"><button class="btn btn-ghost" id="fi_cierra">Cerrar</button><button class="btn btn-primary" id="fi_reedit">Volver a firmar</button></div></div>
+    </div></div>`);
+    $('#modalRoot').appendChild(modal);
+    const close=()=>modal.remove();
+    $('.x',modal).onclick=close; $('#fi_cierra',modal).onclick=close; modal.onclick=(x)=>{if(x.target===modal)close();};
+    $('#fi_reedit',modal).onclick=()=>{ close(); openFirmaModal(e,tipo,true); };
+    return;
+  }
+
+  // ---- Modo captura ----
+  const fpDef = e.forma_pago||'Efectivo';
+  const modal=el(`<div class="overlay"><div class="modal">
+    <div class="modal-head"><h3>${titulo}</h3><button class="x">${svg('x',18)}</button></div>
+    <div class="modal-body">
+      <div class="form-field"><label>Nombre de quien ${esEntrega?'recibe':'entrega el mobiliario'}</label><input id="fi_nom" value="${esc(nomPrev)}" placeholder="Nombre del cliente"></div>
+      ${!esEntrega?`
+      <div class="form-field"><label>Forma de pago del saldo${saldo>0?` (pendiente ${money(saldo)})`:''}</label>
+        <div class="pay-seg" id="fi_pago">${FORMAS_PAGO.map(fp=>`<label class="${fp===fpDef?'on':''}"><input type="radio" name="fpago" value="${fp}" ${fp===fpDef?'checked':''}><span>${fp}</span></label>`).join('')}</div>
+      </div>
+      <div class="form-field"><label>Monto cobrado ahora (MXN)</label><input type="number" id="fi_monto" min="0" value="${e.pago_final!=null&&e.recogido?e.pago_final:(saldo||0)}"><div class="hint">Se suma a lo pagado del evento y baja el saldo en Finanzas.</div></div>
+      `:''}
+      <div class="form-field"><label>Comentarios del cliente (opcional)</label><textarea id="fi_com" rows="2" placeholder="Ej. Todo en orden / faltó una silla / se manchó un mantel...">${esc(comPrev)}</textarea></div>
+      <label style="font-size:12.5px;color:var(--muted)">Firma del cliente (con el dedo)</label>
+      <canvas class="sig-pad" id="fi_pad"></canvas>
+      <div class="sig-tools"><span>Firme dentro del recuadro</span><button type="button" class="btn btn-ghost btn-sm" id="fi_clear">Borrar</button></div>
+    </div>
+    <div class="modal-foot"><div></div><div style="display:flex;gap:10px"><button class="btn btn-ghost" id="fi_cancel">Cancelar</button><button class="btn btn-primary" id="fi_save">Guardar firma</button></div></div>
+  </div></div>`);
+  $('#modalRoot').appendChild(modal);
+  const close=()=>modal.remove();
+  $('.x',modal).onclick=close; $('#fi_cancel',modal).onclick=close; modal.onclick=(x)=>{if(x.target===modal)close();};
+
+  if(!esEntrega){ const seg=$('#fi_pago',modal); $$('input',seg).forEach(inp=>inp.onchange=()=>{ $$('label',seg).forEach(l=>l.classList.remove('on')); inp.closest('label').classList.add('on'); }); }
+
+  const pad=$('#fi_pad',modal); let drawing=false, dirty=false, ctx;
+  const setup=()=>{ const r=pad.getBoundingClientRect(); if(!r.width) return setTimeout(setup,40); pad.width=Math.round(r.width*2); pad.height=Math.round(r.height*2); ctx=pad.getContext('2d'); ctx.scale(2,2); ctx.lineWidth=2.2; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.strokeStyle='#0a2540'; };
+  setTimeout(setup,40);
+  const pos=(ev)=>{ const r=pad.getBoundingClientRect(); const t=ev.touches?ev.touches[0]:ev; return {x:t.clientX-r.left, y:t.clientY-r.top}; };
+  const start=(ev)=>{ if(!ctx)return; ev.preventDefault(); drawing=true; dirty=true; const p=pos(ev); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+  const move=(ev)=>{ if(!drawing||!ctx)return; ev.preventDefault(); const p=pos(ev); ctx.lineTo(p.x,p.y); ctx.stroke(); };
+  const end=()=>{ drawing=false; };
+  pad.addEventListener('pointerdown',start); pad.addEventListener('pointermove',move); window.addEventListener('pointerup',end);
+  $('#fi_clear',modal).onclick=()=>{ if(ctx)ctx.clearRect(0,0,pad.width,pad.height); dirty=false; };
+
+  $('#fi_save',modal).onclick=async()=>{
+    const nom=$('#fi_nom',modal).value.trim();
+    if(!dirty){ toast('Falta la firma del cliente','err'); return; }
+    if(!nom){ toast('Escribe el nombre de quien firma','err'); return; }
+    const btn=$('#fi_save',modal); btn.disabled=true; toast('Guardando...','ok');
+    try{
+      const blob=await new Promise(r=>pad.toBlob(r,'image/png'));
+      const url=await mediaUpload(`firmas/${e.id}-${tipo}.png`, blob);
+      const now=new Date().toISOString();
+      const patch={};
+      if(esEntrega){ Object.assign(patch,{entregado:true, firma_entrega_url:url, firma_entrega_nombre:nom, firma_entrega_en:now, comentario_entrega:$('#fi_com',modal).value.trim()||null}); }
+      else{
+        const chk=$('#fi_pago',modal).querySelector('input:checked');
+        const fp=(chk&&chk.value)||'Efectivo';
+        const monto=Math.max(0,+$('#fi_monto',modal).value||0);
+        const prevPago=e.recogido?(Number(e.pago_final)||0):0;
+        const nuevoAnt=Math.max(0,(Number(e.anticipo)||0)-prevPago+monto);
+        const total=Number(e.total)||0;
+        const nuevoEst = (total>0 && nuevoAnt>=total) ? 'pagado' : e.estatus;
+        Object.assign(patch,{recogido:true, firma_recoge_url:url, firma_recoge_nombre:nom, firma_recoge_en:now, comentario_recoge:$('#fi_com',modal).value.trim()||null, forma_pago:fp, pago_final:monto, anticipo:nuevoAnt, estatus:nuevoEst});
+      }
+      await Store.patchEvento(e.id, patch);
+      Object.assign(e, patch);
+      toast(esEntrega?'Entrega firmada ✓':'Recolección firmada ✓','ok'); close(); render();
+    }catch(err){ toast('No se pudo guardar la firma','err'); btn.disabled=false; }
+  };
 }
 
 /* =========================================================================
@@ -1458,6 +1619,10 @@ function openEventoModal(ev){
         <div class="form-field"><label>Tipo</label><select id="f_tipo">${['Boda','XV Años','Cumpleaños','Corporativo','Bautizo','Graduación','Otro'].map(t=>`<option ${e.tipo===t?'selected':''}>${t}</option>`).join('')}</select></div>
       </div>
       <div class="form-field"><label>Dirección del evento</label><input id="f_dir" value="${esc(e.direccion)}" placeholder="Salón / Jardín, calle, colonia, ciudad"></div>
+      <div class="grid2">
+        <div class="form-field"><label>Link de ubicación (Google Maps, opcional)</label><input id="f_mapa" value="${esc(e.mapa_url||'')}" placeholder="Pega el pin exacto (opcional)"><div class="hint">Si lo dejas vacío, el staff abrirá Maps con la dirección de arriba.</div></div>
+        <div class="form-field"><label>Foto de la casa / lugar (opcional)</label>${isNew?'<div class="hint">Guarda el evento y luego edítalo para subir la foto que mande el cliente.</div>':`<div id="f_casaWrap" style="margin-bottom:6px"></div><button type="button" class="btn btn-ghost btn-sm" id="f_casaBtn">${svg('plus',15)} ${e.foto_casa_url?'Cambiar foto':'Subir foto'}</button><input type="file" accept="image/*" id="f_casa" style="display:none">`}</div>
+      </div>
       <div class="grid2">
         <div class="form-field"><label>Estatus</label><select id="f_est">${Object.keys(STATUS).map(k=>`<option value="${k}" ${e.estatus===k?'selected':''}>${STATUS[k].full}</option>`).join('')}</select></div>
         <div class="form-field"><label>Chofer asignado</label><select id="f_chofer"><option value="">Sin asignar</option>${state.data.choferes.map(ch=>`<option value="${ch.id}" ${e.chofer_id===ch.id?'selected':''}>${esc(ch.nombre)}</option>`).join('')}</select></div>
@@ -1490,6 +1655,20 @@ function openEventoModal(ev){
     const cl = clSel.value?clienteById(clSel.value):null;
     if(cl){ $('#f_cli',modal).value=cl.nombre; if(cl.telefono) $('#f_tel',modal).value=cl.telefono; }
   };
+
+  // ---- Foto de la casa (solo al editar; el evento ya tiene id) ----
+  if(!isNew){
+    const casaWrap=$('#f_casaWrap',modal), casaInput=$('#f_casa',modal), casaBtn=$('#f_casaBtn',modal);
+    const drawCasa=()=>{ casaWrap.innerHTML=''; if(e.foto_casa_url){ const img=el(`<img class="casa-photo" src="${e.foto_casa_url}">`); img.onclick=()=>lightbox(e.foto_casa_url); casaWrap.appendChild(img); } };
+    drawCasa();
+    casaBtn.onclick=()=>casaInput.click();
+    casaInput.onchange=async()=>{
+      const f=casaInput.files[0]; if(!f) return;
+      toast('Subiendo foto...','ok');
+      try{ const blob=await compressImage(f); const url=await mediaUpload(`casa/${e.id}.jpg`, blob); e.foto_casa_url=url; await Store.patchEvento(e.id,{foto_casa_url:url}); drawCasa(); toast('Foto de la casa guardada','ok'); }
+      catch(err){ toast('No se pudo subir la foto','err'); }
+    };
+  }
 
   const itemsWrap=$('#itemsWrap',modal);
   const drawItems=()=>{
@@ -1536,6 +1715,7 @@ function openEventoModal(ev){
       hora:$('#f_hora',modal).value, tipo:$('#f_tipo',modal).value, direccion:$('#f_dir',modal).value.trim(),
       estatus:$('#f_est',modal).value, chofer_id:$('#f_chofer',modal).value||null,
       total:+$('#f_total',modal).value||0, anticipo:+$('#f_ant',modal).value||0, notas:$('#f_notas',modal).value.trim(),
+      mapa_url:$('#f_mapa',modal).value.trim()||null,
       items:e.items.filter(it=>it.mob_id)
     });
     await Store.saveEvento(e);
