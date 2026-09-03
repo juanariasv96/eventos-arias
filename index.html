@@ -457,6 +457,7 @@ function seedDemo(){
     {id:"p49",nombre:"Funda dorada (mesa)",categoria:"Accesorios",cantidad_total:33,precio_renta:0,tipo:"pieza",unidad:"pieza"},
     {id:"p50",nombre:"Funda silla gris",categoria:"Accesorios",cantidad_total:240,precio_renta:0,tipo:"pieza",unidad:"pieza"},
     {id:"p51",nombre:"Caja redonda",categoria:"Accesorios",cantidad_total:1,precio_renta:0,tipo:"pieza",unidad:"pieza"},
+    {id:"p52",nombre:"Adornos",categoria:"Decoración",cantidad_total:7,precio_renta:0,tipo:"pieza",unidad:"pieza"},
     {id:"r1",nombre:"Mesa periquera dorada rectangular (6 sillas)",categoria:"Periqueras",cantidad_total:33,precio_renta:750,tipo:"producto",unidad:"set"},
     {id:"r2",nombre:"Mesa periquera dorada rectangular (8 sillas)",categoria:"Periqueras",cantidad_total:33,precio_renta:910,tipo:"producto",unidad:"set"},
     {id:"r3",nombre:"Mesa periquera dorada redonda (4 sillas)",categoria:"Periqueras",cantidad_total:31,precio_renta:550,tipo:"producto",unidad:"set"},
@@ -494,10 +495,10 @@ function seedDemo(){
     {id:'c3',numero_cliente:3,nombre:'Corporativo Cemex',telefono:'81 3456 7890',email:'eventos@cemex.com',direccion:'',notas:'Requiere factura'}
   ];
   const encargos = [
-    {id:'en1',titulo:'Recoger toldo 6x6 en bodega',chofer_id:'ch1',fecha:iso(d.getDate()+1),prioridad:'urgente',notas:'Está en el rack del fondo.',estatus:'pendiente',creado_en:iso(d.getDate())},
-    {id:'en2',titulo:'Comprar 20 bolsas de hielo',chofer_id:'ch2',fecha:iso(d.getDate()+1),prioridad:'normal',notas:'',estatus:'pendiente',creado_en:iso(d.getDate())},
-    {id:'en3',titulo:'Llevar generador a mantenimiento',chofer_id:'ch1',fecha:iso(d.getDate()+3),prioridad:'normal',notas:'Cambio de aceite y filtro.',estatus:'pendiente',creado_en:iso(d.getDate())},
-    {id:'en4',titulo:'Lavar fundas de sillas grises',chofer_id:'ch2',fecha:iso(d.getDate()-1),prioridad:'normal',notas:'',estatus:'hecho',creado_en:iso(d.getDate()-2)}
+    {id:'en1',titulo:'Recoger toldo 6x6 en bodega',chofer_id:'ch1',chofer_ids:['ch1','ch2'],fecha:iso(d.getDate()+1),prioridad:'urgente',notas:'Está en el rack del fondo. Se necesitan dos personas.',estatus:'pendiente',creado_en:iso(d.getDate())},
+    {id:'en2',titulo:'Comprar 20 bolsas de hielo',chofer_id:'ch2',chofer_ids:['ch2'],fecha:iso(d.getDate()+1),prioridad:'normal',notas:'',estatus:'pendiente',creado_en:iso(d.getDate())},
+    {id:'en3',titulo:'Llevar generador a mantenimiento',chofer_id:'ch1',chofer_ids:['ch1'],fecha:iso(d.getDate()+3),prioridad:'normal',notas:'Cambio de aceite y filtro.',estatus:'pendiente',creado_en:iso(d.getDate())},
+    {id:'en4',titulo:'Lavar fundas de sillas grises',chofer_id:'ch2',chofer_ids:['ch2'],fecha:iso(d.getDate()-1),prioridad:'normal',notas:'',estatus:'hecho',creado_en:iso(d.getDate()-2)}
   ];
   const cotizaciones = [
     {id:'q1',folio:1,cliente_id:'c1',cliente:'García López',telefono:'81 1234 5678',email:'garcia@example.com',fecha:iso(d.getDate()-12),vigencia_dias:15,estatus:'aceptada',descuento:0,envio:500,iva:false,notas:'',evento_id:null,
@@ -523,7 +524,9 @@ const Store = {
     const cfg = window.SUPABASE_CONFIG||{};
     if(cfg.url && cfg.anonKey && window.supabase){
       state.mode='supabase';
-      state.sb = window.supabase.createClient(cfg.url, cfg.anonKey);
+      state.sb = window.supabase.createClient(cfg.url, cfg.anonKey, {
+        auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:false, storageKey:'ea-auth', storage: window.localStorage }
+      });
       return;
     }
     state.mode='demo';
@@ -545,7 +548,7 @@ const Store = {
       state.data.mobiliario = mob.data||[];
       state.data.choferes = ch.data||[];
       state.data.clientes = cl.data||[];
-      state.data.encargos = en.data||[];
+      state.data.encargos = (en.data||[]).map(e=>({...e, chofer_ids:(Array.isArray(e.chofer_ids)&&e.chofer_ids.length)?e.chofer_ids:(e.chofer_id?[e.chofer_id]:[])}));
       state.data.eventos = (ev.data||[]).map(e=>({...e, items:(e.evento_items||[]).map(i=>({mob_id:i.mobiliario_id,cantidad:i.cantidad}))}));
       state.data.cotizaciones = (co.data||[]).map(c=>({...c, items:(c.cotizacion_items||[]).map(i=>({mob_id:i.mobiliario_id,descripcion:i.descripcion,cantidad:i.cantidad,precio:i.precio_unitario}))}));
       return;
@@ -613,7 +616,8 @@ const Store = {
   },
   async saveEncargo(en){
     if(state.mode==='supabase'){
-      const row={titulo:en.titulo,chofer_id:en.chofer_id||null,fecha:en.fecha||null,prioridad:en.prioridad||'normal',notas:en.notas||null,estatus:en.estatus||'pendiente'};
+      const ids=enChoferIds(en);
+      const row={titulo:en.titulo,chofer_id:ids[0]||null,chofer_ids:ids,fecha:en.fecha||null,prioridad:en.prioridad||'normal',notas:en.notas||null,estatus:en.estatus||'pendiente'};
       if(en.id) await state.sb.from('encargos').update(row).eq('id',en.id);
       else await state.sb.from('encargos').insert(row);
       await this.loadAll(); return;
@@ -660,6 +664,8 @@ function cleanCotRow(r){ const {items,cotizacion_items,...rest}=r; if(rest.folio
 /* ---------- Helpers de negocio ---------- */
 const mobById = (id)=>state.data.mobiliario.find(m=>m.id===id);
 const choferById = (id)=>state.data.choferes.find(c=>c.id===id);
+const enChoferIds = (en)=>Array.isArray(en&&en.chofer_ids)&&en.chofer_ids.length?en.chofer_ids:(en&&en.chofer_id?[en.chofer_id]:[]);
+const enChoferNombres = (en)=>enChoferIds(en).map(id=>{const c=choferById(id);return c?c.nombre:null;}).filter(Boolean);
 const clienteById = (id)=>state.data.clientes.find(c=>c.id===id);
 const saldo = (e)=>Math.max(0,(Number(e.total)||0)-(Number(e.anticipo)||0));
 const cobrado = (e)=> e.estatus==='pagado' ? (Number(e.total)||0) : (Number(e.anticipo)||0);
@@ -1049,18 +1055,18 @@ function renderEncargos(c){
     const q=($('#enSearch',bar).value||'').toLowerCase(), cf=$('#enChofer',bar).value, ef=$('#enEst',bar).value;
     const tb=$('#enBody',card); tb.innerHTML='';
     const rows=state.data.encargos
-      .filter(e=>!cf||e.chofer_id===cf)
+      .filter(e=>!cf||enChoferIds(e).includes(cf))
       .filter(e=>!ef||(e.estatus||'pendiente')===ef)
       .filter(e=>!q||(e.titulo||'').toLowerCase().includes(q))
       .sort((a,b)=>((a.estatus==='hecho')-(b.estatus==='hecho'))||String(a.fecha||'').localeCompare(String(b.fecha||'')));
     if(!rows.length){ tb.appendChild(el(`<tr><td colspan="6">${emptyState('Sin encargos','Crea un encargo para un chofer.').outerHTML}</td></tr>`)); return; }
     rows.forEach(en=>{
-      const ch=choferById(en.chofer_id);
+      const noms=enChoferNombres(en);
       const hecho=en.estatus==='hecho';
       const urg=en.prioridad==='urgente';
       const tr=el(`<tr style="${hecho?'opacity:.55':''}">
         <td><b>${esc(en.titulo)}</b>${en.notas?`<div class="muted" style="font-size:11.5px">${esc(en.notas)}</div>`:''}</td>
-        <td>${ch?esc(ch.nombre):'<span class="muted">Sin asignar</span>'}</td>
+        <td>${noms.length?noms.map(n=>esc(n)).join(', '):'<span class="muted">Sin asignar</span>'}</td>
         <td>${en.fecha?fmtFecha(en.fecha):'<span class="muted">—</span>'}</td>
         <td style="text-align:center"><span class="pill" style="${urg?'background:var(--danger-bg);color:var(--danger)':''}">${urg?'Urgente':'Normal'}</span></td>
         <td style="text-align:center"><span class="badge ${hecho?'b-pagado':'b-pendiente'}">${hecho?'✓ Hecho':'Pendiente'}</span></td>
@@ -1078,15 +1084,16 @@ function renderEncargos(c){
 }
 function openEncargoModal(en){
   const isNew=!en;
-  const m = en?{...en}:{titulo:'',chofer_id:(state.data.choferes[0]?state.data.choferes[0].id:null),fecha:todayISO(),prioridad:'normal',notas:'',estatus:'pendiente'};
+  const m = en?{...en}:{titulo:'',chofer_ids:[],fecha:todayISO(),prioridad:'normal',notas:'',estatus:'pendiente'};
+  const sel=new Set(enChoferIds(m));
   const modal=el(`<div class="overlay"><div class="modal">
     <div class="modal-head"><h3>${isNew?'Nuevo encargo':'Editar encargo'}</h3><button class="x">${svg('x',18)}</button></div>
     <div class="modal-body">
       <div class="form-field"><label>¿Qué hay que hacer? *</label><input id="e_tit" value="${esc(m.titulo)}" placeholder="Ej. Recoger toldo en bodega"></div>
-      <div class="grid2">
-        <div class="form-field"><label>Chofer</label><select id="e_ch"><option value="">Sin asignar</option>${state.data.choferes.map(ch=>`<option value="${ch.id}" ${m.chofer_id===ch.id?'selected':''}>${esc(ch.nombre)}</option>`).join('')}</select></div>
-        <div class="form-field"><label>Fecha</label><input type="date" id="e_fecha" value="${esc(m.fecha||'')}"></div>
+      <div class="form-field"><label>Staff asignado (puedes elegir varios)</label>
+        <div id="e_staff">${state.data.choferes.map(ch=>`<label class="chk"><input type="checkbox" value="${ch.id}" ${sel.has(ch.id)?'checked':''}> ${esc(ch.nombre)}</label>`).join('')||'<span class="muted" style="font-size:12.5px">No hay staff registrado.</span>'}</div>
       </div>
+      <div class="form-field"><label>Fecha</label><input type="date" id="e_fecha" value="${esc(m.fecha||'')}"></div>
       <div class="form-field"><label>Prioridad</label><select id="e_pri"><option value="normal" ${m.prioridad!=='urgente'?'selected':''}>Normal</option><option value="urgente" ${m.prioridad==='urgente'?'selected':''}>Urgente</option></select></div>
       <div class="form-field"><label>Notas (opcional)</label><textarea id="e_notas" rows="2" placeholder="Detalles del encargo...">${esc(m.notas||'')}</textarea></div>
     </div>
@@ -1103,7 +1110,8 @@ function openEncargoModal(en){
   $('#saveEn',modal).onclick=async()=>{
     const t=$('#e_tit',modal).value.trim();
     if(!t){ toast('Escribe qué hay que hacer','err'); return; }
-    Object.assign(m,{titulo:t,chofer_id:$('#e_ch',modal).value||null,fecha:$('#e_fecha',modal).value||null,prioridad:$('#e_pri',modal).value,notas:$('#e_notas',modal).value.trim()});
+    const ids=$$('#e_staff input:checked',modal).map(i=>i.value);
+    Object.assign(m,{titulo:t,chofer_ids:ids,chofer_id:ids[0]||null,fecha:$('#e_fecha',modal).value||null,prioridad:$('#e_pri',modal).value,notas:$('#e_notas',modal).value.trim()});
     await Store.saveEncargo(m); toast(isNew?'Encargo creado':'Guardado','ok'); close(); render();
   };
 }
@@ -1410,7 +1418,7 @@ function renderAgenda(c){
 
   // ---- Encargos ----
   const misEnc = state.data.encargos
-    .filter(en=>en.chofer_id===(chofer?chofer.id:null))
+    .filter(en=>chofer&&enChoferIds(en).includes(chofer.id))
     .sort((a,b)=>((a.estatus==='hecho')-(b.estatus==='hecho'))||String(a.fecha||'').localeCompare(String(b.fecha||'')));
   const pendEnc = misEnc.filter(en=>en.estatus!=='hecho').length;
   c.appendChild(el(`<h3 style="color:var(--navy);font-size:15px;margin:22px 0 10px">${svg('clip',17)} Encargos${pendEnc?` <span class="pill" style="background:var(--accent);color:#fff">${pendEnc}</span>`:''}</h3>`));
@@ -1585,7 +1593,7 @@ async function startApp(user){
   $('#app').classList.remove('hidden');
   $('#demoBadge').classList.toggle('hidden',state.mode!=='demo');
   $('#userName').textContent=user.name;
-  $('#userRole').textContent = user.role==='chofer'?'Chofer':'Administradora';
+  $('#userRole').textContent = user.role==='chofer'?'Staff':'Administradora';
   $('#userAv').textContent=(user.name||'A')[0].toUpperCase();
   buildNav();
   await Store.loadAll();
@@ -1628,9 +1636,24 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   const clearLogin=()=>{ try{ if(state.user&&state.mode==='supabase'&&!$('#login').classList.contains('hidden')){} $('#loginEmail').value=''; $('#loginPass').value=''; }catch(e){} };
   clearLogin(); setTimeout(clearLogin,300); setTimeout(clearLogin,800);
 
-  // Atajo demo: ?demo o ?demo=chofer entra directo
   const p=new URLSearchParams(location.search);
-  if(p.has('demo')) enterDemo(p.get('demo')==='chofer'?'chofer':'admin');
+  let entered=false;
+
+  // Restaurar sesión: si ya inició sesión antes, entra directo sin volver a pedir login.
+  if(state.mode==='supabase' && state.sb){
+    try{
+      const {data:{session}} = await state.sb.auth.getSession();
+      if(session && session.user){
+        let role='admin', name=(session.user.email||'').split('@')[0], email=session.user.email;
+        try{ const {data:prof}=await state.sb.from('perfiles').select('*').eq('id',session.user.id).single(); if(prof){role=prof.rol||role;name=prof.nombre||name;} }catch(e){}
+        await startApp({name,role,email});
+        entered=true;
+      }
+    }catch(e){}
+  }
+
+  // Atajo demo: ?demo o ?demo=chofer entra directo (sólo si no había sesión)
+  if(!entered && p.has('demo')) enterDemo(p.get('demo')==='chofer'?'chofer':'admin');
 });
 
 </script>
