@@ -977,9 +977,11 @@ function renderInventario(c){
   if(!state.invTipo) state.invTipo='pieza';
   const nP=state.data.mobiliario.filter(m=>(m.tipo||'pieza')==='pieza').length;
   const nR=state.data.mobiliario.filter(m=>m.tipo==='producto').length;
-  const tabs=el(`<div class="seg" style="display:inline-flex;gap:4px;background:var(--bg2,#eef2f7);padding:4px;border-radius:12px;margin-bottom:14px">
+  const nS=state.data.mobiliario.filter(m=>m.tipo==='servicio').length;
+  const tabs=el(`<div class="seg" style="display:inline-flex;gap:4px;background:var(--bg2,#eef2f7);padding:4px;border-radius:12px;margin-bottom:14px;flex-wrap:wrap">
     <button class="seg-b" data-t="pieza">Existencias físicas <span class="pill">${nP}</span></button>
     <button class="seg-b" data-t="producto">Productos de renta <span class="pill">${nR}</span></button>
+    <button class="seg-b" data-t="servicio">Cargos y servicios <span class="pill">${nS}</span></button>
   </div>`);
   c.appendChild(tabs);
   const bar=el(`<div class="toolbar">
@@ -1002,24 +1004,31 @@ function renderInventario(c){
   };
   const draw=()=>{
     $$('.seg-b',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===state.invTipo));
+    const labels={pieza:'Agregar existencia',producto:'Agregar producto',servicio:'Agregar cargo'};
+    $('#invNew',bar).innerHTML=`${svg('plus',16)} ${labels[state.invTipo]||'Agregar'}`;
     hint.textContent = state.invTipo==='pieza'
       ? 'Conteo físico real (lo que se carga y cuenta). Los artículos de apoyo no tienen precio.'
-      : 'Productos y paquetes que rentas, con precio. La cantidad de sets es aproximada; la existencia real está en la otra pestaña.';
+      : state.invTipo==='servicio'
+      ? 'Cargos y servicios (maniobra, fletes, etc.): tienen precio pero no manejan existencias. Aparecen al cotizar y en eventos. Toca "Editar" para cambiar el precio.'
+      : 'Productos y paquetes que rentas, con precio. Toca "Editar" para cambiar el precio.';
     const q=($('#invSearch',bar).value||'').toLowerCase(), cf=$('#invCat',bar).value;
     const tb=$('#invBody',card); tb.innerHTML='';
     const rows=state.data.mobiliario.filter(m=>(m.tipo||'pieza')===state.invTipo).filter(m=>!cf||m.categoria===cf).filter(m=>!q||m.nombre.toLowerCase().includes(q)).sort((a,b)=>(a.categoria+a.nombre).localeCompare(b.categoria+b.nombre));
     if(!rows.length){ tb.appendChild(el(`<tr><td colspan="6">${emptyState('Sin artículos','Agrega tu inventario.').outerHTML}</td></tr>`)); return; }
     rows.forEach(m=>{
-      const comprometido=m.cantidad_total-disponibleEn(m.id,todayISO());
-      const pct=m.cantidad_total?Math.min(100,Math.round(comprometido/m.cantidad_total*100)):0;
+      const isServ=m.tipo==='servicio';
+      const comprometido=isServ?0:(m.cantidad_total-disponibleEn(m.id,todayISO()));
+      const pct=(!isServ&&m.cantidad_total)?Math.min(100,Math.round(comprometido/m.cantidad_total*100)):0;
       const cls=pct>=100?'none':pct>=70?'low':'';
       const uni=m.unidad&&m.unidad!=='pieza'?` <span class="muted" style="font-weight:400;font-size:11px">${esc(m.unidad)}</span>`:'';
+      const qtyCell=isServ?'<span class="muted">—</span>':`${m.cantidad_total}${uni}`;
+      const stockCell=isServ?'<span class="muted">—</span>':`${comprometido>0?comprometido:'—'}<div class="stock-bar ${cls}" style="margin-left:auto"><i style="width:${pct}%"></i></div>`;
       const tr=el(`<tr>
         <td><b>${esc(m.nombre)}</b></td>
         <td><span class="pill">${esc(m.categoria||'—')}</span></td>
-        <td style="text-align:center;font-weight:600">${m.cantidad_total}${uni}</td>
+        <td style="text-align:center;font-weight:600">${qtyCell}</td>
         <td style="text-align:right">${m.precio_renta>0?money(m.precio_renta):'<span class="muted">—</span>'}</td>
-        <td style="text-align:center">${comprometido>0?comprometido:'—'}<div class="stock-bar ${cls}" style="margin-left:auto"><i style="width:${pct}%"></i></div></td>
+        <td style="text-align:center">${stockCell}</td>
         <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-sm ed">Editar</button></td>
       </tr>`);
       $('.ed',tr).onclick=()=>openMobModal(m);
@@ -1270,7 +1279,7 @@ function openCotizacionModal(cot){
   const clSel=$('#c_sel',modal);
   clSel.onchange=()=>{ const cl=clienteById(clSel.value); if(cl){ c0.cliente_id=cl.id; $('#c_nom',modal).value=cl.nombre; $('#c_tel',modal).value=cl.telefono||''; $('#c_mail',modal).value=cl.email||''; } else { c0.cliente_id=null; } };
 
-  const prodOpts=(sel)=>{ const opt=m=>`<option value="${m.id}" ${sel===m.id?'selected':''}>${esc(m.nombre)}${m.precio_renta>0?' ('+money(m.precio_renta)+')':''}</option>`; const prods=state.data.mobiliario.filter(m=>m.tipo==='producto'); const piez=state.data.mobiliario.filter(m=>(m.tipo||'pieza')==='pieza'); return '<option value="">Selecciona concepto...</option>'+(prods.length?'<optgroup label="Productos de renta">'+prods.map(opt).join('')+'</optgroup>':'')+(piez.length?'<optgroup label="Existencias físicas">'+piez.map(opt).join('')+'</optgroup>':''); };
+  const prodOpts=(sel)=>{ const opt=m=>`<option value="${m.id}" ${sel===m.id?'selected':''}>${esc(m.nombre)}${m.precio_renta>0?' ('+money(m.precio_renta)+')':''}</option>`; const prods=state.data.mobiliario.filter(m=>m.tipo==='producto'); const servs=state.data.mobiliario.filter(m=>m.tipo==='servicio'); const piez=state.data.mobiliario.filter(m=>(m.tipo||'pieza')==='pieza'); return '<option value="">Selecciona concepto...</option>'+(prods.length?'<optgroup label="Productos de renta">'+prods.map(opt).join('')+'</optgroup>':'')+(servs.length?'<optgroup label="Cargos y servicios">'+servs.map(opt).join('')+'</optgroup>':'')+(piez.length?'<optgroup label="Existencias físicas">'+piez.map(opt).join('')+'</optgroup>':''); };
   const drawItems=()=>{
     const box=$('#c_items',modal); box.innerHTML='';
     if(!c0.items.length) box.appendChild(el(`<div class="hint" style="margin:2px 0 6px">Agrega al menos un concepto.</div>`));
@@ -1677,11 +1686,11 @@ function openEventoModal(ev){
       const fecha=$('#f_fecha',modal).value;
       const disp=it.mob_id?disponibleEn(it.mob_id,fecha,e.id):null;
       const row=el(`<div class="item-row">
-        <select class="it-mob">${(()=>{const opt=m=>`<option value="${m.id}" ${it.mob_id===m.id?'selected':''}>${esc(m.nombre)}${m.precio_renta>0?' ('+money(m.precio_renta)+')':''}</option>`;const prods=state.data.mobiliario.filter(m=>m.tipo==='producto');const piez=state.data.mobiliario.filter(m=>(m.tipo||'pieza')==='pieza');return '<option value="">Selecciona...</option>'+(prods.length?'<optgroup label="Productos de renta">'+prods.map(opt).join('')+'</optgroup>':'')+(piez.length?'<optgroup label="Existencias físicas">'+piez.map(opt).join('')+'</optgroup>':'');})()}</select>
+        <select class="it-mob">${(()=>{const opt=m=>`<option value="${m.id}" ${it.mob_id===m.id?'selected':''}>${esc(m.nombre)}${m.precio_renta>0?' ('+money(m.precio_renta)+')':''}</option>`;const prods=state.data.mobiliario.filter(m=>m.tipo==='producto');const servs=state.data.mobiliario.filter(m=>m.tipo==='servicio');const piez=state.data.mobiliario.filter(m=>(m.tipo||'pieza')==='pieza');return '<option value="">Selecciona...</option>'+(prods.length?'<optgroup label="Productos de renta">'+prods.map(opt).join('')+'</optgroup>':'')+(servs.length?'<optgroup label="Cargos y servicios">'+servs.map(opt).join('')+'</optgroup>':'')+(piez.length?'<optgroup label="Existencias físicas">'+piez.map(opt).join('')+'</optgroup>':'');})()}</select>
         <input type="number" class="it-qty" min="1" value="${it.cantidad||1}">
         <button class="rm">${svg('x',15)}</button>
       </div>`);
-      if(it.mob_id&&disp!=null){ const over=it.cantidad>disp; row.appendChild(el(`<div style="grid-column:1/-1;font-size:11.5px;margin-top:-4px;color:${over?'var(--danger)':'var(--muted)'}">${over?'⚠ ':''}Disponibles el ${fmtFecha(fecha)}: ${disp} de ${mobById(it.mob_id).cantidad_total}</div>`)); }
+      if(it.mob_id&&disp!=null&&(mobById(it.mob_id)||{}).tipo!=='servicio'){ const over=it.cantidad>disp; row.appendChild(el(`<div style="grid-column:1/-1;font-size:11.5px;margin-top:-4px;color:${over?'var(--danger)':'var(--muted)'}">${over?'⚠ ':''}Disponibles el ${fmtFecha(fecha)}: ${disp} de ${mobById(it.mob_id).cantidad_total}</div>`)); }
       $('.it-mob',row).onchange=(x)=>{ it.mob_id=x.target.value; recalc(); drawItems(); };
       $('.it-qty',row).oninput=(x)=>{ it.cantidad=Math.max(1,+x.target.value||1); recalc(); };
       $('.it-qty',row).onchange=()=>drawItems();
@@ -1728,7 +1737,8 @@ function openEventoModal(ev){
    ========================================================================= */
 function openMobModal(mob){
   const isNew=!mob||!mob.id;
-  const m = (mob&&mob.id)?{...mob}:{nombre:'',categoria:'',cantidad_total:1,precio_renta:0,tipo:(mob&&mob.tipo)||'pieza',unidad:(mob&&mob.tipo==='producto')?'set':'pieza'};
+  const _t0=(mob&&mob.tipo)||'pieza';
+  const m = (mob&&mob.id)?{...mob}:{nombre:'',categoria:_t0==='servicio'?'Cargos y servicios':'',cantidad_total:1,precio_renta:0,tipo:_t0,unidad:_t0==='producto'?'set':(_t0==='servicio'?'servicio':'pieza')};
   const cats=[...new Set(state.data.mobiliario.map(x=>x.categoria).filter(Boolean))].sort();
   const modal=el(`<div class="overlay"><div class="modal">
     <div class="modal-head"><h3>${isNew?'Nuevo artículo':'Editar artículo'}</h3><button class="x">${svg('x',18)}</button></div>
@@ -1736,14 +1746,15 @@ function openMobModal(mob){
       <div class="form-field"><label>Tipo</label><select id="m_tipo">
         <option value="pieza" ${(m.tipo||'pieza')==='pieza'?'selected':''}>Existencia física (pieza)</option>
         <option value="producto" ${m.tipo==='producto'?'selected':''}>Producto de renta (con precio)</option>
+        <option value="servicio" ${m.tipo==='servicio'?'selected':''}>Cargo o servicio (con precio, sin existencias)</option>
       </select></div>
-      <div class="form-field"><label>Nombre del artículo *</label><input id="m_nom" value="${esc(m.nombre)}" placeholder="Ej. Mesa periquera dorada"></div>
+      <div class="form-field"><label>Nombre *</label><input id="m_nom" value="${esc(m.nombre)}" placeholder="Ej. Mesa periquera dorada"></div>
       <div class="form-field"><label>Categoría</label><input id="m_cat" list="catlist" value="${esc(m.categoria)}" placeholder="Ej. Periqueras"><datalist id="catlist">${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</datalist></div>
-      <div class="grid2">
+      <div class="grid2" id="m_qtyrow">
         <div class="form-field"><label>Cantidad</label><input type="number" id="m_qty" min="0" value="${m.cantidad_total}"></div>
         <div class="form-field"><label>Unidad</label><input id="m_uni" value="${esc(m.unidad||'pieza')}" placeholder="pieza / set / paquete"></div>
       </div>
-      <div class="form-field"><label>Precio de renta (MXN) — 0 si es artículo de apoyo</label><input type="number" id="m_precio" min="0" value="${m.precio_renta}"></div>
+      <div class="form-field"><label id="m_precioLbl">Precio de renta (MXN) — 0 si es artículo de apoyo</label><input type="number" id="m_precio" min="0" value="${m.precio_renta}"></div>
     </div>
     <div class="modal-foot">
       <div>${!isNew?'<button class="btn btn-ghost btn-sm" id="delMob" style="color:var(--danger)">Eliminar</button>':''}</div>
@@ -1754,13 +1765,18 @@ function openMobModal(mob){
   const close=()=>modal.remove();
   $('.x',modal).onclick=close; $('#cancelMob',modal).onclick=close;
   modal.onclick=(e)=>{ if(e.target===modal)close(); };
+  const syncTipo=()=>{ const t=$('#m_tipo',modal).value; $('#m_qtyrow',modal).style.display = t==='servicio'?'none':''; $('#m_precioLbl',modal).textContent = t==='servicio' ? 'Precio del cargo (MXN) — puedes dejarlo en 0 y ajustarlo al cotizar' : (t==='producto'?'Precio de renta (MXN)':'Precio de renta (MXN) — 0 si es artículo de apoyo'); };
+  $('#m_tipo',modal).onchange=syncTipo; syncTipo();
   if(!isNew)$('#delMob',modal).onclick=async()=>{ if(confirm('¿Eliminar este artículo del inventario?')){ await Store.deleteMob(m.id); toast('Artículo eliminado','ok'); close(); render(); } };
   $('#saveMob',modal).onclick=async()=>{
     const nom=$('#m_nom',modal).value.trim();
-    if(!nom){ toast('Escribe el nombre del artículo','err'); return; }
-    Object.assign(m,{nombre:nom,categoria:$('#m_cat',modal).value.trim(),cantidad_total:+$('#m_qty',modal).value||0,precio_renta:+$('#m_precio',modal).value||0,tipo:$('#m_tipo',modal).value,unidad:$('#m_uni',modal).value.trim()||'pieza'});
+    if(!nom){ toast('Escribe el nombre','err'); return; }
+    const tipo=$('#m_tipo',modal).value, isServ=tipo==='servicio';
+    Object.assign(m,{nombre:nom,categoria:$('#m_cat',modal).value.trim(),precio_renta:+$('#m_precio',modal).value||0,tipo,
+      cantidad_total:isServ?999999:(+$('#m_qty',modal).value||0),
+      unidad:isServ?'servicio':($('#m_uni',modal).value.trim()||'pieza')});
     state.invTipo=m.tipo;
-    await Store.saveMob(m); toast(isNew?'Artículo agregado':'Guardado','ok'); close(); render();
+    await Store.saveMob(m); toast(isNew?'Agregado':'Guardado','ok'); close(); render();
   };
 }
 
