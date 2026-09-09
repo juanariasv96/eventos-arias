@@ -735,8 +735,8 @@ function cotTotals(cot){
   const subtotal=(cot.items||[]).reduce((s,it)=>s+(Number(it.precio)||0)*(Number(it.cantidad)||0),0);
   const desc=Number(cot.descuento)||0, envio=Number(cot.envio)||0;
   const base=Math.max(0,subtotal-desc);
-  const iva=cot.iva?base*0.16:0;
-  const total=base+iva+envio;
+  const iva=cot.iva?(base+envio)*0.16:0;
+  const total=base+envio+iva;
   return {subtotal,base,iva,envio,desc,total};
 }
 const COT_STATUS={
@@ -1260,7 +1260,7 @@ function openCotizacionModal(cot){
       </div>
       <div class="grid2">
         <div class="form-field"><label>Descuento (MXN)</label><input type="number" id="c_desc" min="0" value="${c0.descuento||0}"></div>
-        <div class="form-field"><label>Envío (MXN)</label><input type="number" id="c_env" min="0" value="${c0.envio||0}"></div>
+        <div class="form-field"><label>Cargo por traslado (MXN)</label><input type="number" id="c_env" min="0" value="${c0.envio||0}"></div>
       </div>
       <label class="chk"><input type="checkbox" id="c_iva" ${c0.iva?'checked':''}> Agregar IVA 16% (cuando el cliente requiere factura)</label>
       <div class="cot-tot" id="c_tot"></div>
@@ -1311,7 +1311,7 @@ function openCotizacionModal(cot){
     $('#c_tot',modal).innerHTML=`
       <div class="row"><span>Subtotal</span><b>${money(t.subtotal)}</b></div>
       ${t.desc>0?`<div class="row"><span>Descuento</span><b style="color:var(--danger)">- ${money(t.desc)}</b></div>`:''}
-      ${t.envio>0?`<div class="row"><span>Envío</span><b>${money(t.envio)}</b></div>`:''}
+      ${t.envio>0?`<div class="row"><span>Cargo por traslado</span><b>${money(t.envio)}</b></div>`:''}
       ${c0.iva?`<div class="row"><span>IVA 16%</span><b>${money(t.iva)}</b></div>`:''}
       <div class="row total"><span>Total</span><b>${money(t.total)}</b></div>`;
   };
@@ -1340,7 +1340,7 @@ function cotResumenTexto(cot){
   s+=lineas.join('\n')+'\n\n';
   s+=`Subtotal: ${money(t.subtotal)}\n`;
   if(t.desc>0) s+=`Descuento: - ${money(t.desc)}\n`;
-  if(t.envio>0) s+=`Envío: ${money(t.envio)}\n`;
+  if(t.envio>0) s+=`Cargo por traslado: ${money(t.envio)}\n`;
   if(cot.iva) s+=`IVA 16%: ${money(t.iva)}\n`;
   s+=`TOTAL: ${money(t.total)}\n\n`;
   const v=cotVence(cot); s+=`Vigencia: ${cot.vigencia_dias||15} días${v?` (hasta el ${fmtFecha(v.toISOString().slice(0,10))})`:''}.\n`;
@@ -1375,7 +1375,7 @@ function cotDocHTML(cot){
     <div class="tot">
       <div class="r"><span>Subtotal</span><span>${money(t.subtotal)}</span></div>
       ${t.desc>0?`<div class="r"><span>Descuento</span><span>- ${money(t.desc)}</span></div>`:''}
-      ${t.envio>0?`<div class="r"><span>Envío</span><span>${money(t.envio)}</span></div>`:''}
+      ${t.envio>0?`<div class="r"><span>Cargo por traslado</span><span>${money(t.envio)}</span></div>`:''}
       ${cot.iva?`<div class="r"><span>IVA 16%</span><span>${money(t.iva)}</span></div>`:''}
       <div class="r g"><span>TOTAL</span><span>${money(t.total)}</span></div>
     </div>
