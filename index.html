@@ -1280,19 +1280,22 @@ function openCotizacionModal(cot){
   clSel.onchange=()=>{ const cl=clienteById(clSel.value); if(cl){ c0.cliente_id=cl.id; $('#c_nom',modal).value=cl.nombre; $('#c_tel',modal).value=cl.telefono||''; $('#c_mail',modal).value=cl.email||''; } else { c0.cliente_id=null; } };
 
   const prodOpts=(sel)=>{ const opt=m=>`<option value="${m.id}" ${sel===m.id?'selected':''}>${esc(m.nombre)}${m.precio_renta>0?' ('+money(m.precio_renta)+')':''}</option>`; const prods=state.data.mobiliario.filter(m=>m.tipo==='producto'); const servs=state.data.mobiliario.filter(m=>m.tipo==='servicio'); const piez=state.data.mobiliario.filter(m=>(m.tipo||'pieza')==='pieza'); return '<option value="">Selecciona concepto...</option>'+(prods.length?'<optgroup label="Productos de renta">'+prods.map(opt).join('')+'</optgroup>':'')+(servs.length?'<optgroup label="Cargos y servicios">'+servs.map(opt).join('')+'</optgroup>':'')+(piez.length?'<optgroup label="Existencias físicas">'+piez.map(opt).join('')+'</optgroup>':''); };
+  const mobDisp=m=>`${m.nombre}${m.categoria?' · '+m.categoria:''}`;
+  const mobDLHtml=()=>{ const ms=state.data.mobiliario.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)); return `<datalist id="cotMobDL">${ms.map(m=>`<option value="${esc(mobDisp(m))}"></option>`).join('')}</datalist>`; };
+  const resolveMob=(str)=>{ str=(str||'').trim().toLowerCase(); if(!str) return null; let h=state.data.mobiliario.find(m=>mobDisp(m).toLowerCase()===str); if(!h){ const ms=state.data.mobiliario.filter(m=>mobDisp(m).toLowerCase().includes(str)||m.nombre.toLowerCase().includes(str)); if(ms.length===1) h=ms[0]; } return h||null; };
   const drawItems=()=>{
-    const box=$('#c_items',modal); box.innerHTML='';
+    const box=$('#c_items',modal); box.innerHTML=''; box.appendChild(el(mobDLHtml()));
     if(!c0.items.length) box.appendChild(el(`<div class="hint" style="margin:2px 0 6px">Agrega al menos un concepto.</div>`));
     c0.items.forEach((it,idx)=>{
       const imp=(Number(it.precio)||0)*(Number(it.cantidad)||0);
       const row=el(`<div class="cot-item">
-        <select class="ci-mob">${prodOpts(it.mob_id)}</select>
+        <input class="ci-mob" list="cotMobDL" placeholder="Escribe para buscar o elige…" value="${it.mob_id&&mobById(it.mob_id)?esc(mobDisp(mobById(it.mob_id))):esc(it.descripcion||'')}" title="Concepto — escribe para buscar">
         <input type="number" class="ci-qty" min="1" value="${it.cantidad||1}" title="Cantidad">
         <input type="number" class="ci-pre" min="0" value="${it.precio||0}" title="Precio unitario">
         <div class="ci-imp">${money(imp)}</div>
         <button class="rm" title="Quitar">${svg('x',15)}</button>
       </div>`);
-      $('.ci-mob',row).onchange=(x)=>{ const m=mobById(x.target.value); it.mob_id=x.target.value; if(m){ it.descripcion=m.nombre; if(Number(m.precio_renta)>0) it.precio=Number(m.precio_renta); } recalc(); drawItems(); };
+      $('.ci-mob',row).onchange=(x)=>{ const m=resolveMob(x.target.value); if(m){ it.mob_id=m.id; it.descripcion=m.nombre; if(Number(m.precio_renta)>0) it.precio=Number(m.precio_renta); } else { it.mob_id=null; it.descripcion=(x.target.value||'').trim(); } recalc(); drawItems(); };
       $('.ci-qty',row).oninput=(x)=>{ it.cantidad=Math.max(1,+x.target.value||1); recalc(); };
       $('.ci-qty',row).onchange=drawItems;
       $('.ci-pre',row).oninput=(x)=>{ it.precio=Math.max(0,+x.target.value||0); recalc(); };
