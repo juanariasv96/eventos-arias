@@ -566,7 +566,7 @@ const Store = {
       state.data.choferes = ch.data||[];
       state.data.clientes = cl.data||[];
       state.data.encargos = (en.data||[]).map(e=>({...e, chofer_ids:(Array.isArray(e.chofer_ids)&&e.chofer_ids.length)?e.chofer_ids:(e.chofer_id?[e.chofer_id]:[])}));
-      state.data.eventos = (ev.data||[]).map(e=>({...e, items:(e.evento_items||[]).map(i=>({mob_id:i.mobiliario_id,cantidad:i.cantidad})), fotos:(e.evento_fotos||[]).map(f=>({id:f.id,tipo:f.tipo,url:f.url,nota:f.nota}))}));
+      state.data.eventos = (ev.data||[]).map(e=>({...e, chofer_ids:(Array.isArray(e.chofer_ids)&&e.chofer_ids.length)?e.chofer_ids:(e.chofer_id?[e.chofer_id]:[]), items:(e.evento_items||[]).map(i=>({mob_id:i.mobiliario_id,cantidad:i.cantidad})), fotos:(e.evento_fotos||[]).map(f=>({id:f.id,tipo:f.tipo,url:f.url,nota:f.nota}))}));
       state.data.cotizaciones = (co.data||[]).map(c=>({...c, items:(c.cotizacion_items||[]).map(i=>({mob_id:i.mobiliario_id,descripcion:i.descripcion,cantidad:i.cantidad,precio:i.precio_unitario}))}));
       return;
     }
@@ -893,6 +893,7 @@ function renderEventos(c){
           <div class="cli">${esc(e.cliente)}</div>
           <div class="meta">${svg('cal',13)} ${fmtFecha(e.fecha)} · ${esc(e.hora||'—')}</div>
           <div class="meta">${svg('pin',13)} ${esc((e.direccion||'—').slice(0,34))}</div>
+          ${enChoferNombres(e).length?`<div class="meta">${svg('truck',13)} ${esc(enChoferNombres(e).map(n=>n).join(', '))}</div>`:''}
           <div class="amt"><span style="color:var(--muted)">Total ${money(e.total)}</span>${saldo(e)>0?`<b style="color:var(--warn)">Saldo ${money(saldo(e))}</b>`:`<b style="color:var(--ok)">Liquidado</b>`}</div>
         </div>`);
         card.onclick=()=>openEventoModal(e); cEl.appendChild(card);
@@ -1081,7 +1082,7 @@ function renderChoferes(c){
   const grid=el(`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px"></div>`);
   const hoy=todayISO();
   state.data.choferes.forEach(ch=>{
-    const asignados=state.data.eventos.filter(e=>e.chofer_id===ch.id&&e.fecha>=hoy&&e.estatus!=='cancelado').sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    const asignados=state.data.eventos.filter(e=>enChoferIds(e).includes(ch.id)&&e.fecha>=hoy&&e.estatus!=='cancelado').sort((a,b)=>a.fecha.localeCompare(b.fecha));
     const card=el(`<div class="card" style="padding:18px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
         <div class="side-user"><div class="av" style="width:44px;height:44px;font-size:16px">${esc(ch.nombre[0])}</div></div>
@@ -1410,7 +1411,7 @@ async function cotConvertirEvento(cot){
   if(!confirm('¿Convertir esta cotización en un evento confirmado?')) return;
   const t=cotTotals(cot);
   const items=(cot.items||[]).filter(it=>it.mob_id).map(it=>({mob_id:it.mob_id,cantidad:Number(it.cantidad)||1}));
-  const ev={cliente:cot.cliente,cliente_id:cot.cliente_id||null,telefono:cot.telefono||'',fecha:cot.fecha||todayISO(),hora:'',direccion:'',tipo:'Renta',estatus:'confirmado',total:t.total,anticipo:0,chofer_id:null,notas:`Generado de la cotización #${cot.folio||''}.`,entregado:false,recogido:false,items};
+  const ev={cliente:cot.cliente,cliente_id:cot.cliente_id||null,telefono:cot.telefono||'',fecha:cot.fecha||todayISO(),hora:'',direccion:'',tipo:'Renta',estatus:'confirmado',total:t.total,anticipo:0,chofer_id:null,chofer_ids:[],notas:`Generado de la cotización #${cot.folio||''}.`,entregado:false,recogido:false,items};
   const evId=await Store.saveEvento(ev);
   await Store.patchCotizacion(cot.id,{estatus:'aceptada',evento_id:evId||null,decidida_en:new Date().toISOString()});
   toast('Cotización aceptada y evento creado','ok');
@@ -1451,7 +1452,7 @@ function openCotizacionDoc(cot){
 function renderAgenda(c){
   const chofer = state.data.choferes.find(ch=>ch.nombre===state.user.name) || state.data.choferes[0];
   const hoy=todayISO();
-  const mios=state.data.eventos.filter(e=>e.chofer_id===(chofer?chofer.id:null)&&e.estatus!=='cancelado'&&(e.fecha>=hoy||!e.recogido)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const mios=state.data.eventos.filter(e=>chofer&&enChoferIds(e).includes(chofer.id)&&e.estatus!=='cancelado'&&(e.fecha>=hoy||!e.recogido)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   c.appendChild(el(`<p style="color:var(--muted);margin-bottom:16px">Agenda de <b style="color:var(--navy)">${esc(chofer?chofer.nombre:'—')}</b></p>`));
 
   // ---- Eventos ----
@@ -1616,7 +1617,8 @@ function openFirmaModal(e, tipo, forceEdit){
    ========================================================================= */
 function openEventoModal(ev){
   const isNew=!ev;
-  const e = ev ? JSON.parse(JSON.stringify(ev)) : {cliente:'',cliente_id:null,telefono:'',fecha:todayISO(),hora:'',direccion:'',tipo:'Boda',estatus:'pendiente',total:0,anticipo:0,chofer_id:null,notas:'',items:[],entregado:false,recogido:false};
+  const e = ev ? JSON.parse(JSON.stringify(ev)) : {cliente:'',cliente_id:null,telefono:'',fecha:todayISO(),hora:'',direccion:'',tipo:'Boda',estatus:'pendiente',total:0,anticipo:0,chofer_id:null,chofer_ids:[],notas:'',items:[],entregado:false,recogido:false};
+  const selCh=new Set(enChoferIds(e));
   const modal=el(`<div class="overlay"><div class="modal wide">
     <div class="modal-head"><h3>${isNew?'Nuevo evento':'Editar evento'}</h3><button class="x">${svg('x',18)}</button></div>
     <div class="modal-body">
@@ -1637,7 +1639,7 @@ function openEventoModal(ev){
       </div>
       <div class="grid2">
         <div class="form-field"><label>Estatus</label><select id="f_est">${Object.keys(STATUS).map(k=>`<option value="${k}" ${e.estatus===k?'selected':''}>${STATUS[k].full}</option>`).join('')}</select></div>
-        <div class="form-field"><label>Chofer asignado</label><select id="f_chofer"><option value="">Sin asignar</option>${state.data.choferes.map(ch=>`<option value="${ch.id}" ${e.chofer_id===ch.id?'selected':''}>${esc(ch.nombre)}</option>`).join('')}</select></div>
+        <div class="form-field"><label>Staff asignado (uno, varios o todos)</label><div id="f_staff" style="display:flex;flex-wrap:wrap;gap:10px 16px">${state.data.choferes.map(ch=>`<label class="chk"><input type="checkbox" value="${ch.id}" ${selCh.has(ch.id)?'checked':''}> ${esc(ch.nombre)}</label>`).join('')||'<span class="muted" style="font-size:12.5px">No hay staff registrado.</span>'}</div></div>
       </div>
 
       <div class="form-field"><label>Mobiliario del evento</label><div id="itemsWrap"></div>
@@ -1725,7 +1727,7 @@ function openEventoModal(ev){
     Object.assign(e,{
       cliente:cli, telefono:$('#f_tel',modal).value.trim(), fecha:$('#f_fecha',modal).value,
       hora:$('#f_hora',modal).value, tipo:$('#f_tipo',modal).value, direccion:$('#f_dir',modal).value.trim(),
-      estatus:$('#f_est',modal).value, chofer_id:$('#f_chofer',modal).value||null,
+      estatus:$('#f_est',modal).value, chofer_ids:[...modal.querySelectorAll('#f_staff input:checked')].map(x=>x.value), chofer_id:([...modal.querySelectorAll('#f_staff input:checked')].map(x=>x.value)[0])||null,
       total:+$('#f_total',modal).value||0, anticipo:+$('#f_ant',modal).value||0, notas:$('#f_notas',modal).value.trim(),
       mapa_url:$('#f_mapa',modal).value.trim()||null,
       items:e.items.filter(it=>it.mob_id)
