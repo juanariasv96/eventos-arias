@@ -206,7 +206,7 @@ select.filter:focus{outline:none;border-color:var(--blue)}
 .pay-seg input{position:absolute;opacity:0;pointer-events:none}
 .pay-seg label.on{border-color:var(--blue);background:var(--info-bg);color:var(--navy);font-weight:700}
 .agenda-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-.agenda-btns .btn{flex:1;min-width:130px}
+.agenda-btns .btn{flex:1 1 150px;min-width:0;white-space:normal;text-align:center;line-height:1.25}
 .chk-done-lbl{font-size:11.5px;color:var(--ok);margin-top:4px}
 .cot-item{display:grid;grid-template-columns:1fr 68px 100px 92px 34px;gap:8px;align-items:center;margin-bottom:8px}
 .cot-item .ci-imp{font-weight:600;font-size:13px;text-align:right;color:var(--navy)}
@@ -364,7 +364,11 @@ const el = (html) => { const t=document.createElement('template'); t.innerHTML=h
 const money = (n) => (Number(n)||0).toLocaleString('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0});
 const esc = (s) => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => 'id'+Math.random().toString(36).slice(2,10);
-const todayISO = () => new Date().toISOString().slice(0,10);
+const isoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const todayISO = () => isoLocal(new Date());
+const addDaysISO = (iso,n) => { const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return isoLocal(d); };
+// Ventana de "Mi agenda" del staff: atrasados de hasta AGENDA_ATRASO días y lo de los próximos AGENDA_PROX días.
+const AGENDA_ATRASO = 3, AGENDA_PROX = 7;
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DOW = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 function fmtFecha(iso){ if(!iso) return '—'; const [y,m,d]=iso.split('-'); return `${d} ${MESES[+m-1].slice(0,3)} ${y}`; }
@@ -598,7 +602,12 @@ const Store = {
     state.data.eventos = state.data.eventos.filter(e=>e.id!==id); this._saveLocal();
   },
   async patchEvento(id,patch){
-    if(state.mode==='supabase'){ await state.sb.from('eventos').update(patch).eq('id',id); await this.loadAll(); return; }
+    if(state.mode==='supabase'){
+      const {data,error}=await state.sb.from('eventos').update(patch).eq('id',id).select('id');
+      if(error) throw error;
+      if(!data||!data.length) throw new Error('Sin permiso para modificar este evento');
+      await this.loadAll(); return;
+    }
     const e=state.data.eventos.find(x=>x.id===id); if(e)Object.assign(e,patch); this._saveLocal();
   },
   async saveEventoFoto(evento_id, url, tipo, nota){
@@ -822,6 +831,16 @@ function renderDashboard(c){
   }
   c.appendChild(wrap);
   $('#ndash').onclick=()=>openEventoModal();
+  const sinRecoger=activos.filter(e=>e.fecha<hoy&&!e.recogido).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  if(sinRecoger.length){
+    const w2=el(`<div class="card" style="padding:20px;margin-top:16px"><div class="section-head"><h3>Recolecciones sin registrar (${sinRecoger.length})</h3></div><div class="muted" style="font-size:12.5px;margin:-6px 0 10px">Eventos pasados que el staff no marcó como recogidos. Después de ${AGENDA_ATRASO} días ya no les aparecen en su agenda; ábrelos para cerrarlos.</div><div class="t-wrap"><table><thead><tr><th>Cliente</th><th>Fecha</th><th>Staff</th><th style="text-align:right">Saldo</th></tr></thead><tbody></tbody></table></div></div>`);
+    const tb2=$('tbody',w2);
+    sinRecoger.forEach(e=>{
+      const tr=el(`<tr style="cursor:pointer"><td><b>${esc(e.cliente)}</b></td><td>${fmtFecha(e.fecha)}</td><td>${enChoferNombres(e).map(n=>esc(n)).join(', ')||'<span class="muted">—</span>'}</td><td style="text-align:right;color:${saldo(e)>0?'var(--warn)':'var(--ok)'};font-weight:600">${saldo(e)>0?money(saldo(e)):'Liquidado'}</td></tr>`);
+      tr.onclick=()=>openEventoModal(e); tb2.appendChild(tr);
+    });
+    c.appendChild(w2);
+  }
 }
 function kpi(icon,cls,val,lbl){ return `<div class="card kpi"><div class="ic ${cls}">${svg(icon,22)}</div><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`; }
 function badge(st){ const s=STATUS[st]||{label:st}; return `<span class="badge b-${st}">${s.label}</span>`; }
@@ -1097,11 +1116,12 @@ function renderChoferes(c){
 }
 
 /* ---------- ENCARGOS (vista admin) ---------- */
+function enAtrasado(en){ return en.estatus!=='hecho' && !!en.fecha && en.fecha<todayISO(); }
 function renderEncargos(c){
   const bar=el(`<div class="toolbar">
     <div class="search">${svg('search',16)}<input id="enSearch" placeholder="Buscar encargo..."></div>
     <select class="filter" id="enChofer"><option value="">Todos los choferes</option></select>
-    <select class="filter" id="enEst"><option value="">Todos</option><option value="pendiente">Pendientes</option><option value="hecho">Hechos</option></select>
+    <select class="filter" id="enEst"><option value="pendiente">Pendientes</option><option value="atrasado">Atrasados</option><option value="hecho">Hechos (historial)</option><option value="">Todos</option></select>
     <button class="btn btn-accent" id="enNew">${svg('plus',16)} Nuevo encargo</button>
   </div>`);
   c.appendChild(bar);
@@ -1116,7 +1136,7 @@ function renderEncargos(c){
     const tb=$('#enBody',card); tb.innerHTML='';
     const rows=state.data.encargos
       .filter(e=>!cf||enChoferIds(e).includes(cf))
-      .filter(e=>!ef||(e.estatus||'pendiente')===ef)
+      .filter(e=>!ef||(ef==='atrasado'?enAtrasado(e):(e.estatus||'pendiente')===ef))
       .filter(e=>!q||(e.titulo||'').toLowerCase().includes(q))
       .sort((a,b)=>((a.estatus==='hecho')-(b.estatus==='hecho'))||String(a.fecha||'').localeCompare(String(b.fecha||'')));
     if(!rows.length){ tb.appendChild(el(`<tr><td colspan="6">${emptyState('Sin encargos','Crea un encargo para un chofer.').outerHTML}</td></tr>`)); return; }
@@ -1127,7 +1147,7 @@ function renderEncargos(c){
       const tr=el(`<tr style="${hecho?'opacity:.55':''}">
         <td><b>${esc(en.titulo)}</b>${en.notas?`<div class="muted" style="font-size:11.5px">${esc(en.notas)}</div>`:''}</td>
         <td>${noms.length?noms.map(n=>esc(n)).join(', '):'<span class="muted">Sin asignar</span>'}</td>
-        <td>${en.fecha?fmtFecha(en.fecha):'<span class="muted">—</span>'}</td>
+        <td>${en.fecha?fmtFecha(en.fecha):'<span class="muted">—</span>'}${enAtrasado(en)?' <span class="badge b-cancelado">Atrasado</span>':''}</td>
         <td style="text-align:center"><span class="pill" style="${urg?'background:var(--danger-bg);color:var(--danger)':''}">${urg?'Urgente':'Normal'}</span></td>
         <td style="text-align:center"><span class="badge ${hecho?'b-pagado':'b-pendiente'}">${hecho?'✓ Hecho':'Pendiente'}</span></td>
         <td style="text-align:right;white-space:nowrap">
@@ -1451,16 +1471,19 @@ function openCotizacionDoc(cot){
 /* ---------- AGENDA (vista chofer) ---------- */
 function renderAgenda(c){
   const chofer = state.data.choferes.find(ch=>ch.nombre===state.user.name) || state.data.choferes[0];
-  const hoy=todayISO();
-  const mios=state.data.eventos.filter(e=>chofer&&enChoferIds(e).includes(chofer.id)&&e.estatus!=='cancelado'&&(e.fecha>=hoy||!e.recogido)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const hoy=todayISO(), desde=addDaysISO(hoy,-AGENDA_ATRASO), hasta=addDaysISO(hoy,AGENDA_PROX);
+  // Solo lo de hoy y los próximos días; lo pasado solo si falta recogerlo y es reciente (el historial completo lo ve la administración).
+  const misEv=state.data.eventos.filter(e=>chofer&&enChoferIds(e).includes(chofer.id)&&e.estatus!=='cancelado'&&(e.fecha>=hoy||(!e.recogido&&e.fecha>=desde)));
+  const evLejos=misEv.filter(e=>e.fecha>hasta);
+  const mios=misEv.filter(e=>e.fecha<=hasta||state.agendaVerTodo).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   c.appendChild(el(`<p style="color:var(--muted);margin-bottom:16px">Agenda de <b style="color:var(--navy)">${esc(chofer?chofer.nombre:'—')}</b></p>`));
 
   // ---- Eventos ----
   c.appendChild(el(`<h3 style="color:var(--navy);font-size:15px;margin:4px 0 10px">${svg('truck',17)} Eventos</h3>`));
-  if(!mios.length){ c.appendChild(el(`<p class="muted" style="font-size:13px;margin-bottom:14px">Sin eventos próximos asignados.</p>`)); }
+  if(!mios.length){ c.appendChild(el(`<p class="muted" style="font-size:13px;margin-bottom:14px">Sin eventos para hoy ni los próximos ${AGENDA_PROX} días.</p>`)); }
   const groups={}; mios.forEach(e=>{(groups[e.fecha]=groups[e.fecha]||[]).push(e);});
   Object.keys(groups).sort().forEach(f=>{
-    const day=el(`<div class="driver-day"><div class="dh">${svg('cal',16)} ${fmtFechaLarga(f)}</div></div>`);
+    const day=el(`<div class="driver-day"><div class="dh">${svg('cal',16)} ${f===hoy?'Hoy · ':''}${fmtFechaLarga(f)}${f<hoy?' <span class="badge b-cancelado">Falta recoger</span>':''}</div></div>`);
     groups[f].forEach(e=>{
       const danos=(e.fotos||[]).filter(f=>f.tipo==='dano');
       const saldo=Math.max(0,(Number(e.total)||0)-(Number(e.anticipo)||0));
@@ -1498,25 +1521,34 @@ function renderAgenda(c){
   });
 
   // ---- Encargos ----
-  const misEnc = state.data.encargos
+  // Se ocultan los hechos (salvo los que se marcaron en esta sesión, para poder deshacer) y los atrasados de más de AGENDA_ATRASO días.
+  state.encHechosSesion=state.encHechosSesion||new Set();
+  const misEncTodos = state.data.encargos
     .filter(en=>chofer&&enChoferIds(en).includes(chofer.id))
+    .filter(en=>en.estatus!=='hecho'?(!en.fecha||en.fecha>=desde):state.encHechosSesion.has(en.id));
+  const encLejos = misEncTodos.filter(en=>en.fecha&&en.fecha>hasta);
+  const misEnc = misEncTodos
+    .filter(en=>!en.fecha||en.fecha<=hasta||state.agendaVerTodo)
     .sort((a,b)=>((a.estatus==='hecho')-(b.estatus==='hecho'))||String(a.fecha||'').localeCompare(String(b.fecha||'')));
   const pendEnc = misEnc.filter(en=>en.estatus!=='hecho').length;
+  const lejos = evLejos.length+encLejos.length;
+  const verMas = ()=>{ if(!lejos) return; const b=el(`<button class="btn btn-ghost btn-sm" style="margin-top:16px">${state.agendaVerTodo?'Ver solo los próximos días':`Ver más adelante (${lejos})`}</button>`); b.onclick=()=>{ state.agendaVerTodo=!state.agendaVerTodo; render(); }; c.appendChild(b); };
   c.appendChild(el(`<h3 style="color:var(--navy);font-size:15px;margin:22px 0 10px">${svg('clip',17)} Encargos${pendEnc?` <span class="pill" style="background:var(--blue);color:#fff">${pendEnc}</span>`:''}</h3>`));
-  if(!misEnc.length){ c.appendChild(el(`<p class="muted" style="font-size:13px">Sin encargos asignados. Cuando la administradora te asigne uno aparecerá aquí.</p>`)); return; }
+  if(!misEnc.length){ c.appendChild(el(`<p class="muted" style="font-size:13px">Sin encargos pendientes. Cuando la administradora te asigne uno aparecerá aquí.</p>`)); verMas(); return; }
   misEnc.forEach(en=>{
     const hecho=en.estatus==='hecho', urg=en.prioridad==='urgente';
     const job=el(`<div class="job" style="${hecho?'opacity:.6':''}">
       <div class="jt"><b>${esc(en.titulo)}</b>${urg&&!hecho?'<span class="badge b-cancelado">Urgente</span>':''}</div>
-      ${en.fecha?`<div class="addr">${svg('cal',15)} ${fmtFechaLarga(en.fecha)}</div>`:''}
+      ${en.fecha?`<div class="addr">${svg('cal',15)} ${en.fecha===hoy?'Hoy · ':''}${fmtFechaLarga(en.fecha)}${!hecho&&en.fecha<hoy?' <span class="badge b-cancelado">Atrasado</span>':''}</div>`:''}
       ${en.notas?`<div style="margin-top:6px;font-size:12.5px;color:var(--muted)">📋 ${esc(en.notas)}</div>`:''}
       <div class="job-actions">
         <button class="btn btn-sm ${hecho?'check-done':'check-todo'}" data-mk>${hecho?'✓ Hecho':'Marcar hecho'}</button>
       </div>
     </div>`);
-    $('[data-mk]',job).onclick=async()=>{ const ns=hecho?'pendiente':'hecho'; await Store.patchEncargo(en.id,{estatus:ns}); en.estatus=ns; toast(ns==='hecho'?'Encargo hecho':'Reabierto','ok'); render(); };
+    $('[data-mk]',job).onclick=async()=>{ const ns=hecho?'pendiente':'hecho'; await Store.patchEncargo(en.id,{estatus:ns}); en.estatus=ns; if(ns==='hecho')state.encHechosSesion.add(en.id); toast(ns==='hecho'?'Encargo hecho':'Reabierto','ok'); render(); };
     c.appendChild(job);
   });
+  verMas();
 }
 
 /* ---- Modal de firma del cliente (entrega / recolección) ---- */
@@ -1608,7 +1640,7 @@ function openFirmaModal(e, tipo, forceEdit){
       await Store.patchEvento(e.id, patch);
       Object.assign(e, patch);
       toast(esEntrega?'Entrega firmada ✓':'Recolección firmada ✓','ok'); close(); render();
-    }catch(err){ toast('No se pudo guardar la firma','err'); btn.disabled=false; }
+    }catch(err){ console.error(err); toast('No se pudo guardar: '+(err&&err.message||'revisa tu conexión'),'err'); btn.disabled=false; }
   };
 }
 
