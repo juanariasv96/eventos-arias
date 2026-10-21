@@ -1476,7 +1476,9 @@ function renderAgenda(c){
   const misEv=state.data.eventos.filter(e=>chofer&&enChoferIds(e).includes(chofer.id)&&e.estatus!=='cancelado'&&(e.fecha>=hoy||(!e.recogido&&e.fecha>=desde)));
   const evLejos=misEv.filter(e=>e.fecha>hasta);
   const mios=misEv.filter(e=>e.fecha<=hasta||state.agendaVerTodo).sort((a,b)=>a.fecha.localeCompare(b.fecha));
-  c.appendChild(el(`<p style="color:var(--muted);margin-bottom:16px">Agenda de <b style="color:var(--navy)">${esc(chofer?chofer.nombre:'—')}</b></p>`));
+  const head=el(`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:16px"><p style="color:var(--muted);margin:0">Agenda de <b style="color:var(--navy)">${esc(chofer?chofer.nombre:'—')}</b></p><button class="btn btn-ghost btn-sm" id="agRefresh">↻ Actualizar</button></div>`);
+  $('#agRefresh',head).onclick=async()=>{ toast('Actualizando...','ok'); await Store.loadAll(); render(); };
+  c.appendChild(head);
 
   // ---- Eventos ----
   c.appendChild(el(`<h3 style="color:var(--navy);font-size:15px;margin:4px 0 10px">${svg('truck',17)} Eventos</h3>`));
@@ -1831,6 +1833,19 @@ async function startApp(user){
   buildNav();
   await Store.loadAll();
   go(state.user.role==='chofer'?'agenda':'dashboard');
+  startAutoRefresh();
+}
+// Vuelve a leer los datos al regresar a la app y cada minuto, para que el celular no se quede con lo de días atrás.
+function startAutoRefresh(){
+  if(state.autoRefresh) return;
+  state.autoRefresh=true;
+  const refresh=async()=>{
+    if(state.mode!=='supabase'||!state.user||document.visibilityState!=='visible') return;
+    if(document.querySelector('#modalRoot .overlay')) return; // no interrumpir un formulario abierto
+    try{ await Store.loadAll(); if(!document.querySelector('#modalRoot .overlay')) render(); }catch(e){ console.error(e); }
+  };
+  document.addEventListener('visibilitychange',refresh);
+  setInterval(refresh,60000);
 }
 
 async function doLogin(){
